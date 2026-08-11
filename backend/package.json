@@ -12,7 +12,8 @@
     "clean": "tsc --build --clean",
     "prisma": "prisma",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -21,11 +22,11 @@
     "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
-    "fastify": "^5.2.1"
+    "fastify": "^5.2.1",
+    "prisma": "^7.9.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "prisma": "^7.9.1",
     "tsx": "^4.20.3"
   }
 }
