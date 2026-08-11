@@ -1,0 +1,22 @@
+{
+  "name": "hob",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc --build",
+    "clean": "npm run clean --workspaces --if-present",
+    "dev:backend": "npm run dev -w @hob/backend",
+    "dev:frontend": "npm run dev -w @hob/frontend",
+    "lint": "oxlint --deny-warnings"
+  },
+  "devDependencies": {
+    "oxlint": "^1.78.0",
+    "typescript": "~6.0.2"
+  }
+}

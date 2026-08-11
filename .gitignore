@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.*
+!.env.example
+backend/.env
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma Client генерируется локально (npx prisma generate)
+backend/src/generated/
+
+# Локальные настройки Claude Code
+.claude/settings.local.json
+
+.DS_Store

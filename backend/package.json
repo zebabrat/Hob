@@ -1,0 +1,31 @@
+{
+  "name": "@hob/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --build",
+    "typecheck": "tsc --build",
+    "start": "node dist/index.js",
+    "clean": "tsc --build --clean",
+    "prisma": "prisma",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@hob/shared": "*",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "prisma": "^7.9.1",
+    "tsx": "^4.20.3"
+  }
+}
