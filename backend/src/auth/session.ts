@@ -42,16 +42,27 @@ export async function deleteSession(token: string): Promise<void> {
   await prisma.session.deleteMany({ where: { token } });
 }
 
+/**
+ * The frontend is served from a different domain than the API, so the session
+ * cookie has to be cross-site: SameSite=None, which browsers only accept
+ * together with Secure — hence HTTPS on both sides (localhost counts as secure).
+ */
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'none',
+  secure: true,
+  path: '/',
+} as const;
+
 export function setSessionCookie(reply: FastifyReply, token: string): void {
   reply.setCookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    secure: process.env['NODE_ENV'] === 'production',
+    ...COOKIE_OPTIONS,
     maxAge: SESSION_TTL_MS / 1000,
   });
 }
 
 export function clearSessionCookie(reply: FastifyReply): void {
-  reply.clearCookie(SESSION_COOKIE, { path: '/' });
+  // Attributes must match the ones the cookie was set with, or the browser
+  // keeps the original cookie alongside the expired one.
+  reply.clearCookie(SESSION_COOKIE, COOKIE_OPTIONS);
 }
