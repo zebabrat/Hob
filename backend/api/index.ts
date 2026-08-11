@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
-import { fastifyOptions, registerApp } from '../backend/dist/app.js';
+import { fastifyOptions, registerApp } from '../dist/app.js';
 
 // One instance per warm container; ready() resolves the plugin queue once.
 // Fastify is constructed here rather than imported ready-made so this file
