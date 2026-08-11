@@ -3,16 +3,9 @@ import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import type { HealthResponse } from '@hob/shared';
+import { isAllowedOrigin } from './auth/origins.js';
 import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
-
-// Comma-separated list; overriding it is how preview deployments and local
-// cross-origin runs get in. A wildcard is deliberately not supported: browsers
-// reject `*` together with credentials, which every authenticated call needs.
-const CORS_ORIGINS = (process.env['CORS_ORIGIN'] ?? 'https://hob-frontend-jet.vercel.app')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
 
 export const fastifyOptions: FastifyServerOptions = {
   logger: true,
@@ -32,7 +25,11 @@ export const fastifyOptions: FastifyServerOptions = {
  */
 export function registerApp(app: FastifyInstance): FastifyInstance {
   app.register(cors, {
-    origin: CORS_ORIGINS,
+    origin: (origin, callback) => {
+      // No Origin header means it is not a browser cross-site request
+      // (curl, health checks, server-to-server) — nothing to guard here.
+      callback(null, origin === undefined || isAllowedOrigin(origin));
+    },
     credentials: true,
     // @fastify/cors defaults to GET,HEAD,POST — without this the users routes
     // would fail their preflight cross-origin.
