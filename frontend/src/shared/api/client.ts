@@ -2,6 +2,14 @@ import type { ErrorResponse } from '@hob/shared'
 
 const API_PREFIX = '/api'
 
+/**
+ * Origin of the backend, e.g. https://api.example.com — set it when the API is
+ * deployed separately from the static frontend. Left empty (the default) requests
+ * stay same-origin: in dev the Vite proxy forwards /api, in a single-origin
+ * deployment the platform routes it.
+ */
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
 /** Non-2xx response from the backend, carrying the status code for callers that branch on it. */
 export class ApiError extends Error {
   readonly statusCode: number
@@ -24,9 +32,17 @@ async function readErrorMessage(response: Response): Promise<string> {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_PREFIX}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${API_PREFIX}${path}`, {
     ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
+    // The session cookie must travel with every request; without this it is
+    // dropped as soon as the API lives on another origin.
+    credentials: 'include',
+    headers: {
+      // Only when something is actually sent: Fastify rejects a bodyless
+      // request that claims application/json with 400.
+      ...(init?.body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...init?.headers,
+    },
   })
 
   if (!response.ok) {
