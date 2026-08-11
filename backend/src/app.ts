@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import type { HealthResponse } from '@hob/shared';
@@ -14,19 +14,23 @@ const CORS_ORIGINS = (process.env['CORS_ORIGIN'] ?? 'https://hob-frontend-jet.ve
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-/**
- * Builds the configured server without binding a port. Plugins are registered
- * without awaiting so the instance can be returned synchronously — Fastify
- * resolves the queue on `ready()`, which serverless hosts call themselves.
- */
-export function buildApp(): FastifyInstance {
-  const app = Fastify({
-    logger: true,
-    // Fastify strips unknown body fields by default; we want an explicit 400 so a
-    // typo in the request body cannot pass unnoticed.
-    ajv: { customOptions: { removeAdditional: false } },
-  });
+export const fastifyOptions: FastifyServerOptions = {
+  logger: true,
+  // Fastify strips unknown body fields by default; we want an explicit 400 so a
+  // typo in the request body cannot pass unnoticed.
+  ajv: { customOptions: { removeAdditional: false } },
+};
 
+/**
+ * Attaches plugins and routes. Registration is not awaited so callers get the
+ * instance back synchronously — Fastify resolves the queue on `ready()`, which
+ * serverless hosts call themselves.
+ *
+ * Kept separate from instance creation so that each entry point constructs its
+ * own Fastify object: the deployment platform decides which framework it is
+ * dealing with by looking at the imports of the entry file itself.
+ */
+export function registerApp(app: FastifyInstance): FastifyInstance {
   app.register(cors, {
     origin: CORS_ORIGINS,
     credentials: true,
@@ -44,4 +48,9 @@ export function buildApp(): FastifyInstance {
   app.register(usersRoutes, { prefix: '/api/users' });
 
   return app;
+}
+
+/** Convenience for entry points that do not need to touch the raw instance. */
+export function buildApp(): FastifyInstance {
+  return registerApp(Fastify(fastifyOptions));
 }
