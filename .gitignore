@@ -14,3 +14,6 @@ backend/src/generated/
 .claude/settings.local.json
 
 .DS_Store
+
+# Привязка к проекту Vercel и локальный .env, который создаёт vercel link
+.vercel
