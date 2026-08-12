@@ -7,6 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { HealthResponse } from '@hob/shared';
 import { isAllowedOrigin } from './auth/origins.js';
 import { config } from './config.js';
+import { registerErrorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
 
@@ -28,6 +29,8 @@ export const fastifyOptions: FastifyServerOptions = {
  * dealing with by looking at the imports of the entry file itself.
  */
 export function registerApp(app: FastifyInstance): FastifyInstance {
+  registerErrorHandler(app);
+
   app.register(cors, {
     origin: (origin, callback) => {
       // No Origin header means it is not a browser cross-site request

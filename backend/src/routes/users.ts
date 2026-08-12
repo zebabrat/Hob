@@ -1,83 +1,22 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type {
-  CreateUserInput,
-  ErrorResponse,
-  UpdateUserInput,
-  UserDto,
-} from '@hob/shared';
-import { PASSWORD_MIN_LENGTH } from '@hob/shared';
-import { Prisma } from '../generated/prisma/client.js';
+import type { CreateUserInput, UpdateUserInput, UserDto } from '@hob/shared';
 import { prisma } from '../db.js';
+import { notFound } from '../errors.js';
 import { hashPassword } from '../auth/password.js';
 import { userSelect } from '../auth/session.js';
 import { requireSession } from '../middleware/requireSession.js';
+import {
+  emailSchema,
+  errorSchema,
+  idParamsSchema,
+  nameSchema,
+  passwordSchema,
+  userSchema,
+} from './schemas.js';
 
 interface IdParams {
   id: number;
 }
-
-/** Prisma error codes we translate into meaningful HTTP responses. */
-const UNIQUE_CONSTRAINT_FAILED = 'P2002';
-const RECORD_NOT_FOUND = 'P2025';
-
-function isPrismaError(err: unknown, code: string): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === code;
-}
-
-function notFound(id: number): ErrorResponse {
-  return {
-    statusCode: 404,
-    error: 'Not Found',
-    message: `User with id ${id} not found`,
-  };
-}
-
-function emailTaken(email: string): ErrorResponse {
-  return {
-    statusCode: 409,
-    error: 'Conflict',
-    message: `Email ${email} is already taken`,
-  };
-}
-
-const userSchema = {
-  type: 'object',
-  properties: {
-    id: { type: 'integer' },
-    email: { type: 'string' },
-    name: { type: ['string', 'null'] },
-  },
-} as const;
-
-const errorSchema = {
-  type: 'object',
-  properties: {
-    statusCode: { type: 'integer' },
-    error: { type: 'string' },
-    message: { type: 'string' },
-  },
-} as const;
-
-const idParamsSchema = {
-  type: 'object',
-  required: ['id'],
-  additionalProperties: false,
-  properties: {
-    id: { type: 'integer', minimum: 1 },
-  },
-} as const;
-
-const emailSchema = {
-  type: 'string',
-  format: 'email',
-  minLength: 3,
-  maxLength: 254,
-} as const;
-
-const nameSchema = {
-  type: ['string', 'null'],
-  maxLength: 200,
-} as const;
 
 const createUserBodySchema = {
   type: 'object',
@@ -85,7 +24,7 @@ const createUserBodySchema = {
   additionalProperties: false,
   properties: {
     email: emailSchema,
-    password: { type: 'string', minLength: PASSWORD_MIN_LENGTH, maxLength: 128 },
+    password: passwordSchema,
     name: nameSchema,
   },
 } as const;
@@ -134,6 +73,8 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       const { id } = request.params;
       const user = await prisma.user.findUnique({ where: { id }, select: userSelect });
 
+      // findUnique answers null rather than failing, so this one 404 stays here;
+      // the failures Prisma throws are mapped centrally.
       if (!user) {
         return reply.code(404).send(notFound(id));
       }
@@ -153,18 +94,12 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { email, password, name } = request.body;
 
-      try {
-        const user = await prisma.user.create({
-          data: { email, name: name ?? null, password: await hashPassword(password) },
-          select: userSelect,
-        });
-        return reply.code(201).send(user);
-      } catch (err) {
-        if (isPrismaError(err, UNIQUE_CONSTRAINT_FAILED)) {
-          return reply.code(409).send(emailTaken(email));
-        }
-        throw err;
-      }
+      const user = await prisma.user.create({
+        data: { email, name: name ?? null, password: await hashPassword(password) },
+        select: userSelect,
+      });
+
+      return reply.code(201).send(user);
     },
   );
 
@@ -177,27 +112,15 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         response: { 200: userSchema, 404: errorSchema, 409: errorSchema },
       },
     },
-    async (request, reply) => {
-      const { id } = request.params;
+    async (request) => {
       const { email, name } = request.body;
 
-      try {
-        const user = await prisma.user.update({
-          where: { id },
-          // Prisma ignores undefined fields, which makes this a partial update
-          data: { email, name },
-          select: userSelect,
-        });
-        return user;
-      } catch (err) {
-        if (isPrismaError(err, RECORD_NOT_FOUND)) {
-          return reply.code(404).send(notFound(id));
-        }
-        if (isPrismaError(err, UNIQUE_CONSTRAINT_FAILED) && email !== undefined) {
-          return reply.code(409).send(emailTaken(email));
-        }
-        throw err;
-      }
+      return prisma.user.update({
+        where: { id: request.params.id },
+        // Prisma ignores undefined fields, which makes this a partial update
+        data: { email, name },
+        select: userSelect,
+      });
     },
   );
 
@@ -210,17 +133,9 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const { id } = request.params;
+      await prisma.user.delete({ where: { id: request.params.id } });
 
-      try {
-        await prisma.user.delete({ where: { id } });
-        return reply.code(204).send();
-      } catch (err) {
-        if (isPrismaError(err, RECORD_NOT_FOUND)) {
-          return reply.code(404).send(notFound(id));
-        }
-        throw err;
-      }
+      return reply.code(204).send();
     },
   );
 };

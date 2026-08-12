@@ -26,6 +26,9 @@ function prismaError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('failed', {
     code,
     clientVersion: '7.9.1',
+    // Prisma names the conflicting columns here; the error handler reads them
+    // to say which value was taken.
+    meta: code === 'P2002' ? { target: ['email'] } : undefined,
   });
 }
 

@@ -24,6 +24,7 @@ function uniqueEmailViolation() {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
     code: 'P2002',
     clientVersion: '7.9.1',
+    meta: { target: ['email'] },
   });
 }
 
@@ -85,7 +86,7 @@ describe('POST /api/auth/sign-up', () => {
     });
 
     expect(response.statusCode).toBe(409);
-    expect(response.json().message).toContain('already taken');
+    expect(response.json().message).toBe('Email alice@example.com is already taken');
   });
 
   it('rejects a short password and an invalid email', async () => {

@@ -1,7 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { ErrorResponse, SignInInput, SignUpInput, UserDto } from '@hob/shared';
-import { PASSWORD_MIN_LENGTH } from '@hob/shared';
-import { Prisma } from '../generated/prisma/client.js';
+import type { ErrorResponse, SignInInput, SignUpInput } from '@hob/shared';
 import { prisma } from '../db.js';
 import { burnPasswordComparison, hashPassword, verifyPassword } from '../auth/password.js';
 import {
@@ -13,12 +11,13 @@ import {
   userSelect,
 } from '../auth/session.js';
 import { currentUser, requireSession } from '../middleware/requireSession.js';
-
-const UNIQUE_CONSTRAINT_FAILED = 'P2002';
-
-function emailTaken(email: string): ErrorResponse {
-  return { statusCode: 409, error: 'Conflict', message: `Email ${email} is already taken` };
-}
+import {
+  emailSchema,
+  errorSchema,
+  nameSchema,
+  passwordSchema,
+  userSchema,
+} from './schemas.js';
 
 /** Same message for unknown email and wrong password — do not reveal which one it was. */
 const invalidCredentials: ErrorResponse = {
@@ -27,31 +26,6 @@ const invalidCredentials: ErrorResponse = {
   message: 'Invalid email or password',
 };
 
-const userSchema = {
-  type: 'object',
-  properties: {
-    id: { type: 'integer' },
-    email: { type: 'string' },
-    name: { type: ['string', 'null'] },
-  },
-} as const;
-
-const errorSchema = {
-  type: 'object',
-  properties: {
-    statusCode: { type: 'integer' },
-    error: { type: 'string' },
-    message: { type: 'string' },
-  },
-} as const;
-
-const emailSchema = { type: 'string', format: 'email', maxLength: 254 } as const;
-const passwordSchema = {
-  type: 'string',
-  minLength: PASSWORD_MIN_LENGTH,
-  maxLength: 128,
-} as const;
-
 const signUpBodySchema = {
   type: 'object',
   required: ['email', 'password'],
@@ -59,7 +33,7 @@ const signUpBodySchema = {
   properties: {
     email: emailSchema,
     password: passwordSchema,
-    name: { type: ['string', 'null'], maxLength: 200 },
+    name: nameSchema,
   },
 } as const;
 
@@ -99,18 +73,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { email, password, name } = request.body;
 
-      let user: UserDto;
-      try {
-        user = await prisma.user.create({
-          data: { email, name: name ?? null, password: await hashPassword(password) },
-          select: userSelect,
-        });
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_FAILED) {
-          return reply.code(409).send(emailTaken(email));
-        }
-        throw err;
-      }
+      // A taken email surfaces as a Prisma unique violation and is turned into
+      // 409 by the shared error handler.
+      const user = await prisma.user.create({
+        data: { email, name: name ?? null, password: await hashPassword(password) },
+        select: userSelect,
+      });
 
       setSessionCookie(reply, await createSession(user.id));
       return reply.code(201).send(user);
