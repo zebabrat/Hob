@@ -31,9 +31,22 @@ async function readErrorMessage(response: Response): Promise<string> {
   return `${response.status} ${response.statusText}`
 }
 
+/**
+ * A request that never answers must not leave a form spinning forever. The
+ * caller's own signal still works — both are combined, so whichever fires first
+ * aborts the request.
+ */
+const REQUEST_TIMEOUT_MS = 15_000
+
+function withTimeout(signal: AbortSignal | null | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${API_PREFIX}${path}`, {
     ...init,
+    signal: withTimeout(init?.signal),
     // The session cookie must travel with every request; without this it is
     // dropped as soon as the API lives on another origin.
     credentials: 'include',

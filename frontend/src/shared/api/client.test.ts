@@ -75,6 +75,24 @@ describe('apiFetch', () => {
     ).resolves.toEqual({ status: 409, message: 'Email a@b.co is already taken' })
   })
 
+  it('gives every request a deadline and keeps the caller able to abort', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ status: 'ok' })))
+
+    await apiFetch('/health')
+    const timeoutOnly = fetchMock.mock.calls[0][1].signal
+
+    const caller = new AbortController()
+    await apiFetch('/health', { signal: caller.signal })
+    const combined = fetchMock.mock.calls[1][1].signal
+
+    // A request that never answers must not leave a form spinning forever.
+    expect(timeoutOnly).toBeInstanceOf(AbortSignal)
+    expect(combined.aborted).toBe(false)
+
+    caller.abort()
+    expect(combined.aborted).toBe(true)
+  })
+
   it('falls back to the status line when the error body is not JSON', async () => {
     fetchMock.mockResolvedValue(new Response('gateway blew up', { status: 502 }))
 

@@ -1,10 +1,13 @@
 import { AuthProvider } from 'features/auth'
+import { ErrorBoundary } from './ErrorBoundary'
 import { AppRouter } from './router'
 
 export function App() {
   return (
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
