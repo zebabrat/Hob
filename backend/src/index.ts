@@ -1,7 +1,5 @@
 import { buildApp } from './app.js';
-
-const PORT = Number(process.env.PORT ?? 3001);
-const HOST = process.env.HOST ?? '0.0.0.0';
+import { config } from './config.js';
 
 export const app = buildApp();
 
@@ -9,7 +7,7 @@ export const app = buildApp();
 // host that runs `npm start`. Serverless entry points import buildApp instead
 // and never bind a port.
 try {
-  await app.listen({ port: PORT, host: HOST });
+  await app.listen({ port: config.port, host: config.host });
 } catch (err) {
   app.log.error(err);
   process.exit(1);

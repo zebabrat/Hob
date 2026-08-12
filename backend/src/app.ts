@@ -6,12 +6,13 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type { HealthResponse } from '@hob/shared';
 import { isAllowedOrigin } from './auth/origins.js';
+import { config } from './config.js';
 import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
 
 export const fastifyOptions: FastifyServerOptions = {
   // Request logs are noise in the test output; everywhere else they are wanted.
-  logger: process.env['NODE_ENV'] !== 'test',
+  logger: config.nodeEnv !== 'test',
   // Fastify strips unknown body fields by default; we want an explicit 400 so a
   // typo in the request body cannot pass unnoticed.
   ajv: { customOptions: { removeAdditional: false } },
