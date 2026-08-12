@@ -8,7 +8,7 @@ const unauthorized: ErrorResponse = {
   message: 'Authentication required',
 };
 
-/** preHandler for protected routes: resolves the session cookie into request.currentUser. */
+/** onRequest hook for protected routes: resolves the session cookie into request.currentUser. */
 export async function requireSession(
   request: FastifyRequest,
   reply: FastifyReply,

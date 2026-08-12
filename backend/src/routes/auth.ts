@@ -146,7 +146,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/me',
     {
-      preHandler: requireSession,
+      onRequest: requireSession,
       schema: { response: { 200: userSchema, 401: errorSchema } },
     },
     async (request) => currentUser(request),

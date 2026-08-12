@@ -13,7 +13,9 @@
     "prisma": "prisma",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
+    "vitest": "^4.1.10"
   }
 }

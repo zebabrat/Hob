@@ -13,7 +13,8 @@
     "clean": "npm run clean --workspaces --if-present",
     "dev:backend": "npm run dev -w @hob/backend",
     "dev:frontend": "npm run dev -w @hob/frontend",
-    "lint": "oxlint --deny-warnings"
+    "lint": "oxlint --deny-warnings",
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
     "oxlint": "^1.78.0",

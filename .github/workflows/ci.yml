@@ -37,3 +37,7 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # No database needed: route tests mock the Prisma client module.
+      - name: Test
+        run: npm test

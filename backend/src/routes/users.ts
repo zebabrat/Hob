@@ -103,8 +103,10 @@ const updateUserBodySchema = {
 } as const;
 
 export const usersRoutes: FastifyPluginAsync = async (app) => {
-  // Every route in this plugin is behind a session.
-  app.addHook('preHandler', requireSession);
+  // Every route in this plugin is behind a session. onRequest, not preHandler:
+  // schema validation runs before preHandler, so an unauthenticated request
+  // would otherwise get a 400 describing the body it was not allowed to send.
+  app.addHook('onRequest', requireSession);
 
   app.get(
     '/',

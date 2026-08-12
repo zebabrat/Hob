@@ -8,7 +8,8 @@ import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
 
 export const fastifyOptions: FastifyServerOptions = {
-  logger: true,
+  // Request logs are noise in the test output; everywhere else they are wanted.
+  logger: process.env['NODE_ENV'] !== 'test',
   // Fastify strips unknown body fields by default; we want an explicit 400 so a
   // typo in the request body cannot pass unnoticed.
   ajv: { customOptions: { removeAdditional: false } },
