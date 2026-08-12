@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import type { HealthResponse } from '@hob/shared';
 import { isAllowedOrigin } from './auth/origins.js';
 import { authRoutes } from './routes/auth.js';
@@ -37,6 +39,20 @@ export function registerApp(app: FastifyInstance): FastifyInstance {
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
   });
   app.register(cookie);
+
+  // Security headers. No HTML is served, so the CSP that helmet installs by
+  // default only ever applies to JSON — harmless, and it still covers the
+  // cases that matter for an API: nosniff, frame denial, referrer policy.
+  app.register(helmet);
+
+  // A ceiling for the whole API; the auth routes tighten it further. The store
+  // is per instance, so on serverless this bounds one container rather than the
+  // fleet — enough to make password guessing impractical, not a substitute for
+  // an edge-level limiter.
+  app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
 
   app.get('/api/health', async (): Promise<HealthResponse> => {
     return { status: 'ok' };

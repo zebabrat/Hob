@@ -74,10 +74,23 @@ const signInBodySchema = {
   },
 } as const;
 
+/**
+ * Credential endpoints are the ones worth guessing at, so they get a tighter
+ * budget than the rest of the API: enough for a person who mistypes a password,
+ * far too little to work through a password list.
+ */
+const credentialsRateLimit = {
+  rateLimit: {
+    max: 10,
+    timeWindow: '1 minute',
+  },
+};
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Body: SignUpInput }>(
     '/sign-up',
     {
+      config: credentialsRateLimit,
       schema: {
         body: signUpBodySchema,
         response: { 201: userSchema, 409: errorSchema },
@@ -107,6 +120,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post<{ Body: SignInInput }>(
     '/sign-in',
     {
+      config: credentialsRateLimit,
       schema: {
         body: signInBodySchema,
         response: { 200: userSchema, 401: errorSchema },

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '../generated/prisma/client.js';
@@ -160,6 +161,36 @@ describe('POST /api/auth/sign-in', () => {
   });
 });
 
+describe('rate limiting', () => {
+  it('stops password guessing after a handful of attempts', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+
+    const attempt = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/sign-in',
+        headers: { 'x-forwarded-for': '203.0.113.7' },
+        payload: { email: 'alice@example.com', password: 'guess' },
+      });
+
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      codes.push((await attempt()).statusCode);
+    }
+
+    // The first attempts answer normally, then the limiter takes over.
+    expect(codes.slice(0, 10)).toEqual(Array.from({ length: 10 }, () => 401));
+    expect(codes.slice(10)).toEqual([429, 429]);
+  });
+
+  it('leaves the health check alone', async () => {
+    for (let i = 0; i < 12; i += 1) {
+      const response = await app.inject({ method: 'GET', url: '/api/health' });
+      expect(response.statusCode).toBe(200);
+    }
+  });
+});
+
 describe('GET /api/auth/me', () => {
   it('401s without a cookie', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/auth/me' });
@@ -214,8 +245,10 @@ describe('POST /api/auth/sign-out', () => {
     });
 
     expect(response.statusCode).toBe(204);
+    // Looked up by hash — the raw cookie value is never stored, so it cannot
+    // appear in the query either.
     expect(prismaMock.session.deleteMany).toHaveBeenCalledWith({
-      where: { token: 'a'.repeat(64) },
+      where: { tokenHash: createHash('sha256').update('a'.repeat(64)).digest('hex') },
     });
     // Cleared with the same attributes it was set with, or the browser keeps it.
     expect(response.cookies[0]).toMatchObject({
