@@ -114,7 +114,10 @@ describe('POST /api/auth/sign-up', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().message).toContain('additional properties');
+    // The wording belongs to the validator; what matters is that the offending
+    // field is named and the request did not go through.
+    expect(response.json().message).toContain('role');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 });
 

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { signUp } from '../api/signUp'
 import { toFormErrorMessage } from '../helpers/errorMessage'
+import { validateSignUp } from '../helpers/validate'
 import type { SignUpFormValues } from '../types'
 import { useCurrentUser } from './useCurrentUser'
 
@@ -12,7 +13,14 @@ export function useSignUp() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const submit = useCallback(
-    async ({ name, ...credentials }: SignUpFormValues) => {
+    async (values: SignUpFormValues) => {
+      const invalid = validateSignUp(values)
+      if (invalid) {
+        setError(invalid)
+        return
+      }
+
+      const { name, ...credentials } = values
       setError(null)
       setIsSubmitting(true)
 

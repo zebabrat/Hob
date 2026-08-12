@@ -104,11 +104,3 @@ export function registerErrorHandler(app: FastifyInstance): void {
   });
 }
 
-/** For the one case a route knows about but the database does not: a missing row it queried itself. */
-export function notFound(id: number): ErrorResponse {
-  return {
-    statusCode: 404,
-    error: 'Not Found',
-    message: `User with id ${id} not found`,
-  };
-}

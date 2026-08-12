@@ -71,8 +71,11 @@ Root Directory задаётся только в дашборде (Settings → B
 | `npm run clean` | удалить артефакты сборки |
 | `npm run dev:backend` / `dev:frontend` | dev-серверы |
 
-Backend (`-w @hob/backend`): `dev` (tsx watch), `build`, `start`, `db:generate`, `db:migrate`.
-Frontend (`-w @hob/frontend`): `dev`, `build`, `preview`, `lint` (oxlint).
+| `npm test` | vitest в обоих пакетах |
+| `npm run lint` | oxlint по всему проекту |
+
+Backend (`-w @hob/backend`): `dev` (tsx watch), `build`, `start`, `test`, `db:generate`, `db:migrate`.
+Frontend (`-w @hob/frontend`): `dev`, `build`, `preview`, `test`, `lint`.
 
 ## API
 
@@ -83,24 +86,23 @@ Frontend (`-w @hob/frontend`): `dev`, `build`, `preview`, `lint` (oxlint).
 | POST | `/api/auth/sign-in` | `200 UserDto` + cookie, `400`, `401` | — |
 | POST | `/api/auth/sign-out` | `204`, cookie очищается | — |
 | GET | `/api/auth/me` | `200 UserDto`, `401` | нужна |
-| GET | `/api/users` | `200 UserDto[]` | нужна |
-| GET | `/api/users/:id` | `200 UserDto`, `404` | нужна |
-| POST | `/api/users` | `201 UserDto`, `400`, `409` | нужна |
-| PUT | `/api/users/:id` | `200 UserDto`, `400`, `404`, `409` | нужна |
-| DELETE | `/api/users/:id` | `204`, `404` | нужна |
 
-Валидация — JSON Schema на уровне роутов; неизвестные поля в теле дают `400`
-(`removeAdditional: false` в конфиге Fastify). Занятый email — `409`, а не сырая ошибка Prisma.
+Схемы запросов и ответов живут в `@hob/shared` как Zod-схемы: бэкенд валидирует ими
+через `fastify-type-provider-zod`, фронтенд проверяет форму до отправки, типы выводятся
+из них же — разъехаться нечему. Неизвестные поля в теле дают `400`, занятый email — `409`
+(маппинг ошибок Prisma в `backend/src/errors.ts`).
 
-Сессия — случайный токен в таблице `Session` и httpOnly-cookie (`SameSite=Lax`, `Secure` в
-production, TTL 7 дней). Проверку делает preHandler `requireSession`
-(`backend/src/middleware/requireSession.ts`), он же кладёт пользователя в `request.currentUser`.
-Пароли хэшируются bcrypt; хэш не покидает бэкенд — все запросы идут через `userSelect`.
+Сессия — случайный токен в httpOnly-cookie (`SameSite=None; Secure`, TTL 7 дней); в базе
+лежит только его SHA-256, поэтому утечка таблицы не даёт живых сессий. Проверку делает
+хук `requireSession` (`backend/src/middleware/requireSession.ts`) на onRequest — до
+валидации тела, иначе неавторизованный запрос получал бы 400 вместо 401. Пароли
+хэшируются bcrypt; хэш не покидает бэкенд — все запросы идут через `userSelect`.
+sign-in и sign-up ограничены 10 попытками в минуту, остальной API — 100.
 
 ## Соглашения
 
 - PascalCase — только для React-компонентов и папок страниц (`HealthStatus.tsx`, `HomePage/`),
-  остальные файлы в camelCase (`db.ts`, `routes/users.ts`, `useHealth.ts`)
+  остальные файлы в camelCase (`db.ts`, `routes/auth.ts`, `useHealth.ts`)
 - точки входа: `backend/src/index.ts`, `frontend/src/app/main.tsx`
 - всё, что уходит по сети, типизируется из `@hob/shared` — не дублировать типы в пакетах
 - комментарии объясняют «почему», а не «что»

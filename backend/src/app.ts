@@ -4,12 +4,13 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import type { HealthResponse } from '@hob/shared';
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { healthResponseSchema } from '@hob/shared';
 import { isAllowedOrigin } from './auth/origins.js';
 import { config } from './config.js';
 import { registerErrorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
-import { usersRoutes } from './routes/users.js';
 
 export const fastifyOptions: FastifyServerOptions = {
   // Request logs are noise in the test output; everywhere else they are wanted.
@@ -29,6 +30,12 @@ export const fastifyOptions: FastifyServerOptions = {
  * dealing with by looking at the imports of the entry file itself.
  */
 export function registerApp(app: FastifyInstance): FastifyInstance {
+  // Routes declare their shapes with the Zod schemas from @hob/shared; these
+  // compilers make Fastify validate and serialise against them, and the type
+  // provider hands the inferred types to the handlers.
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
   registerErrorHandler(app);
 
   app.register(cors, {
@@ -58,12 +65,13 @@ export function registerApp(app: FastifyInstance): FastifyInstance {
     timeWindow: '1 minute',
   });
 
-  app.get('/api/health', async (): Promise<HealthResponse> => {
-    return { status: 'ok' };
-  });
+  app.withTypeProvider<ZodTypeProvider>().get(
+    '/api/health',
+    { schema: { response: { 200: healthResponseSchema } } },
+    async () => ({ status: 'ok' }),
+  );
 
   app.register(authRoutes, { prefix: '/api/auth' });
-  app.register(usersRoutes, { prefix: '/api/users' });
 
   return app;
 }

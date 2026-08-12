@@ -18,5 +18,8 @@
     "build": "tsc --build",
     "typecheck": "tsc --build",
     "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }
