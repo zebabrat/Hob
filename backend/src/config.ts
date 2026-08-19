@@ -31,6 +31,15 @@ export interface Config {
   corsOrigins: string[];
   /** Extra origins allowed by shape — preview deployments get a fresh host. */
   corsOriginPattern: RegExp | null;
+  /**
+   * Write token for Vercel Blob, or null when it is not set.
+   *
+   * Deliberately not in the list above: attachments are one feature, and a
+   * missing token should not stop the server from serving everything else.
+   * The attachment routes answer 503 instead, which says the same thing at the
+   * point where it actually matters.
+   */
+  blobToken: string | null;
 }
 
 function readConfig(env: NodeJS.ProcessEnv): Config {
@@ -86,6 +95,7 @@ function readConfig(env: NodeJS.ProcessEnv): Config {
     databaseUrl: databaseUrl as string,
     corsOrigins,
     corsOriginPattern,
+    blobToken: env['BLOB_READ_WRITE_TOKEN']?.trim() || null,
   };
 }
 

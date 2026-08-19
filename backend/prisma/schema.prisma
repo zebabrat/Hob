@@ -11,11 +11,12 @@ datasource db {
 }
 
 model User {
-  id       Int       @id @default(autoincrement())
-  email    String    @unique
-  name     String?
-  password String
-  sessions Session[]
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  name         String?
+  password     String
+  sessions     Session[]
+  applications Application[]
 }
 
 model Session {
@@ -31,4 +32,102 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum WorkFormat {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+/// One job application, owned by the user who created it. Every route reaches
+/// it through userId — there is no sharing in this phase.
+model Application {
+  id       Int               @id @default(autoincrement())
+  userId   Int
+  company  String
+  position String
+  status   ApplicationStatus @default(APPLIED)
+
+  /// Whole currency units, as advertised. No currency field yet: adding one
+  /// later is additive, while guessing at it now would bake in a wrong default.
+  salary     Int?
+  workFormat WorkFormat?
+  jobUrl     String?
+
+  /// Short summary of the posting, kept because listings disappear.
+  summary String?
+  notes   String?
+
+  appliedDate DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interviews    Interview[]
+  attachments   Attachment[]
+  statusChanges StatusChange[]
+
+  /// The list route reads one user's applications newest first.
+  @@index([userId, appliedDate])
+  @@index([userId, status])
+}
+
+model Interview {
+  id            Int @id @default(autoincrement())
+  applicationId Int
+
+  /// Free text rather than an enum: rounds are named differently at every
+  /// company, and an enum would need a migration per new name.
+  round       String
+  scheduledAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+/// One row per status transition, written in the same transaction as the
+/// change that causes it — this is the audit trail the analytics page reads
+/// average time-per-stage from, not something reconstructed after the fact.
+model StatusChange {
+  id            Int @id @default(autoincrement())
+  applicationId Int
+
+  /// Null only for the row written at creation: there is no "from" status
+  /// before an application exists.
+  fromStatus ApplicationStatus?
+  toStatus   ApplicationStatus
+  changedAt  DateTime           @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  /// Read per application, oldest first — that order is what turns consecutive
+  /// rows into "time spent in a stage".
+  @@index([applicationId, changedAt])
+}
+
+model Attachment {
+  id            Int @id @default(autoincrement())
+  applicationId Int
+
+  /// Where the file lives in Vercel Blob. Also what deletion is issued against.
+  blobUrl    String
+  fileName   String
+  uploadedAt DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
 }

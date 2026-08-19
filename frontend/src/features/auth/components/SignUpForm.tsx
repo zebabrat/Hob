@@ -4,9 +4,9 @@ import { PASSWORD_MIN_LENGTH } from '@hob/shared'
 import { useSignUp } from '../hooks/useSignUp'
 import { readSignUpValues } from '../helpers/formValues'
 import { AuthCard } from './AuthCard'
-import { FormError } from './FormError'
-import { SubmitButton } from './SubmitButton'
-import { TextField } from './TextField'
+import { FormError } from 'shared/components/FormError'
+import { SubmitButton } from 'shared/components/SubmitButton'
+import { TextField } from 'shared/components/TextField'
 
 export function SignUpForm() {
   const { submit, error, isSubmitting } = useSignUp()
@@ -25,7 +25,7 @@ export function SignUpForm() {
           Already registered?{' '}
           <Link
             to="/sign-in"
-            className="font-medium text-neutral-900 underline underline-offset-4 dark:text-neutral-100"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Sign in
           </Link>

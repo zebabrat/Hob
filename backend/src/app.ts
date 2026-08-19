@@ -11,6 +11,9 @@ import { isAllowedOrigin } from './auth/origins.js';
 import { config } from './config.js';
 import { registerErrorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
+import { applicationRoutes } from './routes/applications.js';
+import { attachmentRoutes } from './routes/attachments.js';
+import { interviewRoutes } from './routes/interviews.js';
 
 export const fastifyOptions: FastifyServerOptions = {
   // Request logs are noise in the test output; everywhere else they are wanted.
@@ -46,8 +49,9 @@ export function registerApp(app: FastifyInstance): FastifyInstance {
     },
     credentials: true,
     // @fastify/cors defaults to GET,HEAD,POST — without this the users routes
-    // would fail their preflight cross-origin.
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
+    // would fail their preflight cross-origin. PATCH is what the tracker uses
+    // for partial edits, including moving a card between columns.
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'],
   });
   app.register(cookie);
 
@@ -72,6 +76,9 @@ export function registerApp(app: FastifyInstance): FastifyInstance {
   );
 
   app.register(authRoutes, { prefix: '/api/auth' });
+  app.register(applicationRoutes, { prefix: '/api/applications' });
+  app.register(interviewRoutes, { prefix: '/api/interviews' });
+  app.register(attachmentRoutes, { prefix: '/api/attachments' });
 
   return app;
 }

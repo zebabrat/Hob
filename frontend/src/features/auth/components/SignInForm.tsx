@@ -3,9 +3,9 @@ import { Link } from 'react-router'
 import { useSignIn } from '../hooks/useSignIn'
 import { readSignInValues } from '../helpers/formValues'
 import { AuthCard } from './AuthCard'
-import { FormError } from './FormError'
-import { SubmitButton } from './SubmitButton'
-import { TextField } from './TextField'
+import { FormError } from 'shared/components/FormError'
+import { SubmitButton } from 'shared/components/SubmitButton'
+import { TextField } from 'shared/components/TextField'
 
 export function SignInForm() {
   const { submit, error, isSubmitting } = useSignIn()
@@ -24,7 +24,7 @@ export function SignInForm() {
           No account yet?{' '}
           <Link
             to="/sign-up"
-            className="font-medium text-neutral-900 underline underline-offset-4 dark:text-neutral-100"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Sign up
           </Link>

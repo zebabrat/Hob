@@ -1,4 +1,4 @@
-import { ApiError } from 'shared/api/client'
+import { ApiError } from './client'
 
 /**
  * Turns whatever the request threw into a line that can be shown under a form.

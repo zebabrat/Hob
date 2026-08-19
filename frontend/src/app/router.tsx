@@ -1,21 +1,56 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
+import { UserMenu } from 'features/auth'
+import { ApplicationDetailPage } from 'pages/ApplicationDetailPage'
+import { BoardPage } from 'pages/BoardPage'
 import { HomePage } from 'pages/HomePage'
 import { SignInPage } from 'pages/SignInPage'
 import { SignUpPage } from 'pages/SignUpPage'
-import { RequireAuth, RequireGuest } from './routes/AuthGate'
+import { AppLayout } from 'shared/components/AppLayout'
+import { Pending, RequireAuth, RequireGuest } from './routes/AuthGate'
+
+/*
+ * The only lazy route: recharts and the whole analytics feature are a
+ * meaningful chunk of the bundle that everyone else — signing in, working the
+ * board, editing an application — never touches. Loaded as its own chunk, it
+ * downloads only when a user actually opens /analytics.
+ */
+const AnalyticsPage = lazy(() =>
+  import('pages/AnalyticsPage').then((module) => ({ default: module.AnalyticsPage })),
+)
+
+/**
+ * The header/footer shell for every signed-in page. AppLayout itself is
+ * feature-agnostic (shared/ cannot import features/auth); UserMenu is wired
+ * in here, at the one layer that is allowed to import both.
+ */
+function ProtectedLayout() {
+  return (
+    <RequireAuth>
+      <AppLayout headerUserSlot={<UserMenu />}>
+        <Outlet />
+      </AppLayout>
+    </RequireAuth>
+  )
+}
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <HomePage />
-            </RequireAuth>
-          }
-        />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/board" element={<BoardPage />} />
+          <Route path="/applications/:id" element={<ApplicationDetailPage />} />
+          <Route
+            path="/analytics"
+            element={
+              <Suspense fallback={<Pending />}>
+                <AnalyticsPage />
+              </Suspense>
+            }
+          />
+        </Route>
         <Route
           path="/sign-in"
           element={

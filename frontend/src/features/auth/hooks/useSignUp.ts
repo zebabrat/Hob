@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { signUp } from '../api/signUp'
-import { toFormErrorMessage } from '../helpers/errorMessage'
+import { toFormErrorMessage } from 'shared/api/errorMessage'
 import { validateSignUp } from '../helpers/validate'
 import type { SignUpFormValues } from '../types'
 import { useCurrentUser } from './useCurrentUser'

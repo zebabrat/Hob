@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { useCurrentUser } from 'features/auth'
 
-function Pending() {
+/** The project's one loading placeholder — also used as the Suspense fallback for lazy routes. */
+export function Pending() {
   return (
-    <div className="flex min-h-dvh items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
+    <div className="flex min-h-dvh items-center justify-center text-sm text-neutral-500">
       Loading…
     </div>
   )

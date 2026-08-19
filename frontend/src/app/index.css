@@ -1,5 +1,214 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/jetbrains-mono';
 
+/*
+ * The app is light-only, by design: no dark theme, no `.dark` class strategy,
+ * and no `prefers-color-scheme` branch anywhere in this file. `color-scheme:
+ * light` pins native form controls and scrollbars to the light rendering
+ * even when the OS is set to dark, so nothing browser-chrome-level leaks a
+ * dark treatment in either. Do not reintroduce a `dark:` variant or a
+ * `prefers-color-scheme` media query.
+ *
+ * The one deliberate exception is the sign-in screen's left panel, which is
+ * a permanent dark surface local to that component (see AuthCard) — not a
+ * theme, just one screen's own layout choice, styled directly with the
+ * --dark-* tokens below rather than through `dark:` utilities.
+ */
 html {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+/*
+ * Chart palette for the analytics page. Kept in the same restrained
+ * vocabulary as the rest of the app: one ink for magnitude, the single
+ * --highlight accent for the one number/bar a screen wants to call out, and
+ * nothing else — no per-category hue set. Where a chart is genuinely
+ * categorical (work format), identity comes from the axis labels already
+ * printed next to every bar, not from color, so a second or third hue was
+ * never needed there either. Referenced from chart components as
+ * var(--viz-…) so a single edit here re-themes every chart.
+ */
+.viz {
+  --viz-surface: #ffffff;
+  --viz-text-secondary: #606874;
+  --viz-grid: #e7eaec;
+  --viz-axis: #d6dade;
+  --viz-track: #eaecee;
+  --viz-series-1: #15171b;
+  --viz-highlight: #c07200;
+}
+
+/* shadcn's token names mapped onto Tailwind's theme, so bg-primary / text-foreground / etc. exist as utilities. */
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Archivo Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* App-specific tiers shadcn's own token set doesn't have. */
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-quaternary: var(--text-quaternary);
+  --color-border-weak: var(--border-weak);
+  --color-zebra: var(--zebra);
+  /*
+   * The mockup's single brand accent (ochre) — kept apart from shadcn's own
+   * --accent, which is a neutral hover/highlight surface, not a color. Named
+   * "highlight" rather than "accent" specifically to avoid that collision:
+   * bg-accent already means something else in every shadcn component.
+   * -highlight is the raw brand color, for fills, borders, underlines and
+   * large text/numbers (≥24px) where the WCAG large-text 3:1 floor applies.
+   * -highlight-text is a minimally darkened variant for when the accent
+   * carries small text that must clear the normal 4.5:1 floor (see the
+   * contrast notes below) — raw -highlight only reaches ~3.1–3.7:1 on real
+   * surfaces, enough for a border or a 52px stat but not a 13px label.
+   */
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-highlight-text: var(--highlight-text);
+  --color-highlight-soft: var(--highlight-soft);
+  /* Status fills — see the contrast notes below for why five of six statuses
+     share one neutral treatment and only Offer gets the accent. */
+  --color-status-applied: var(--status-applied);
+  --color-status-screening: var(--status-screening);
+  --color-status-interview: var(--status-interview);
+  --color-status-offer: var(--status-offer);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-withdrawn: var(--status-withdrawn);
+  --color-status-foreground: var(--status-foreground);
+  /* The sign-in screen's permanent dark panel — not a theme, one component. */
+  --color-dark-surface: var(--dark-surface);
+  --color-dark-foreground: var(--dark-foreground);
+  --color-dark-line: var(--dark-line);
+  /*
+   * border-radius: 0, everywhere. Every shadcn component reads its radius
+   * through this multiplier chain (radius-md = 0.8×base, etc.), so zeroing
+   * the one base variable flattens every corner the CLI ever generated
+   * without hunting down each component. Elements that used a hardcoded
+   * rounded-full / rounded-4xl outside this chain (pills, the old badge
+   * shape) are fixed at the component level instead, since Tailwind's own
+   * literal utilities don't read --radius at all.
+   */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * The only palette this app has — light, on bare :root.
+ *
+ * Base values are exactly the brief's hex, converted from the one CSS
+ * `oklch()` accent to a solved hex so contrast can be computed against it
+ * the same way as everything else: oklch(0.62 0.17 75) → #c07200.
+ *
+ * Contrast, checked against every real surface (canvas #eaecee, surface
+ * #ffffff, zebra #f6f7f8) with the WCAG formula:
+ *  - primary (#15171b) and secondary (#606874) both clear 4.5:1 everywhere
+ *    as given (15–18:1 and 4.75–5.63:1) — no change needed.
+ *  - tertiary (#8b93a0) and quaternary (#b6bcc4) both fail 4.5:1 on every
+ *    surface (2.6–3.1:1 and 1.6–1.9:1). The brief itself scopes quaternary
+ *    to "диз., дизейбл" (disabled controls) and tertiary partly to
+ *    placeholders — both are WCAG-exempt categories (1.4.3 excludes
+ *    incidental/disabled text) — so they're kept exactly as specified, but
+ *    that exemption only covers genuinely decorative use. Anywhere tertiary
+ *    would carry real information on its own (an interview date, a contact
+ *    line) the screens use --text-secondary instead, not a darkened
+ *    tertiary — a first attempt at darkening tertiary to pass 4.5:1 landed
+ *    at #636b79, close enough to secondary's #606874 to collapse the two
+ *    tiers into one, which defeats having a third tier at all.
+ *  - the raw accent (#c07200) reaches only 3.1–3.7:1 against these
+ *    surfaces — enough for the WCAG large-text/UI-component 3:1 floor (52px
+ *    stat numbers, borders, the 2px active-tab underline) but not for small
+ *    text. --highlight-text (#9b5c00) is the same hue darkened to clear
+ *    4.5:1 (4.5–5.4:1) for the few places accent carries small text (an
+ *    inline deadline label, a callout number under 24px).
+ *  - --destructive is unchanged from hex — already 4.98–5.90:1 everywhere.
+ */
+:root {
+  --background: #eaecee;
+  --foreground: #15171b;
+  --card: #ffffff;
+  --card-foreground: #15171b;
+  --popover: #ffffff;
+  --popover-foreground: #15171b;
+  --primary: #15171b;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f7f8;
+  --secondary-foreground: #15171b;
+  --muted: #f6f7f8;
+  --muted-foreground: #606874;
+  --accent: #f6f7f8;
+  --accent-foreground: #15171b;
+  --destructive: #b63539;
+  --border: #d6dade;
+  --border-weak: #e7eaec;
+  --input: #e7eaec;
+  --ring: #c07200;
+  --radius: 0rem;
+
+  --text-secondary: #606874;
+  --text-tertiary: #8b93a0;
+  --text-quaternary: #b6bcc4;
+  --zebra: #f6f7f8;
+
+  --highlight: #c07200;
+  --highlight-foreground: #15171b;
+  --highlight-text: #9b5c00;
+  --highlight-soft: color-mix(in oklch, var(--highlight) 9%, white);
+
+  --dark-surface: #15171b;
+  --dark-foreground: #ffffff;
+  --dark-line: #2b2f36;
+
+  /*
+   * No colored status fills, on purpose: the mockup only ever colors an
+   * "active/urgent" state (a deadline, a call tomorrow, a conversion
+   * number), never a pipeline stage for its own sake — a card's column
+   * position already says what stage it's in. Applied/Screening/Interview/
+   * Rejected/Withdrawn all get the same neutral chip (zebra fill, weak
+   * border, primary text); only Offer gets the accent treatment, matching
+   * "последняя колонка (Оффер) — карточки на мягком акцентном фоне".
+   */
+  --status-applied: var(--zebra);
+  --status-screening: var(--zebra);
+  --status-interview: var(--zebra);
+  --status-offer: var(--highlight-soft);
+  --status-rejected: var(--zebra);
+  --status-withdrawn: var(--zebra);
+  --status-foreground: var(--foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
