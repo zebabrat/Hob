@@ -30,13 +30,16 @@ export function useCreateApplication(onCreated: (application: ApplicationDto) =>
   const close = useCallback(() => setIsOpen(false), [])
 
   const submit = useCallback(
-    async (values: ApplicationFormValues) => {
+    // keepOpen: the mockup's "⌘ ↵ Save and add another" — the dialog stays
+    // open with a blank form instead of closing, for filing several
+    // applications from the same job-board tab in a row.
+    async (values: ApplicationFormValues, keepOpen = false) => {
       setError(null)
       setIsSubmitting(true)
 
       try {
         onCreated(await createApplication(toCreateInput(values)))
-        setIsOpen(false)
+        if (!keepOpen) setIsOpen(false)
       } catch (err) {
         setError(toFormErrorMessage(err))
       } finally {

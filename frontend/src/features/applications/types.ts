@@ -1,4 +1,4 @@
-import type { ApplicationDto, ApplicationStatus } from '@hob/shared'
+import type { ApplicationDto, ApplicationStatus, Priority } from '@hob/shared'
 
 /** One column of the board: a status, its heading, and the cards in it. */
 export interface ApplicationColumn {
@@ -15,26 +15,39 @@ export interface ApplicationColumn {
 export interface ApplicationFormValues {
   company: string
   position: string
+  recruiter: string
+  status: ApplicationStatus
+  priority: Priority
   appliedDate: string
   salary: string
+  salaryType: string
   workFormat: string
   jobUrl: string
+  source: string[]
+  labels: string[]
+  notes: string
 }
 
 /**
- * The detail page's edit form. A superset of the create form — status,
- * summary and notes are set once the application exists, not at creation —
- * kept as its own type because the two forms are free to diverge further:
- * the edit form clears a blank optional field, the create form omits it.
+ * The detail page's edit form. A superset of the create form — summary is
+ * only set once the application exists, not at creation — kept as its own
+ * type because the two forms are free to diverge further: the edit form
+ * clears a blank optional field, the create form omits it.
  */
 export interface ApplicationEditFormValues {
   company: string
   position: string
+  recruiter: string
   status: ApplicationStatus
+  priority: Priority
   appliedDate: string
   salary: string
+  salaryType: string
   workFormat: string
   jobUrl: string
+  source: string[]
+  offerDeadline: string
+  labels: string[]
   summary: string
   notes: string
 }

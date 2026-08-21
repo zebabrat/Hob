@@ -25,7 +25,7 @@ export function useSignIn() {
 
       try {
         setUser(await signIn(values))
-        void navigate('/', { replace: true })
+        void navigate('/board', { replace: true })
       } catch (err) {
         setError(toFormErrorMessage(err))
         setIsSubmitting(false)

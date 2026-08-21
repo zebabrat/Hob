@@ -15,13 +15,13 @@ export function KanbanColumn({ column }: KanbanColumnProps) {
   return (
     <section
       ref={setNodeRef}
-      // w-72 shrink-0: a fixed width per column is what makes the board's own
-      // overflow-x-auto (in KanbanBoard) scroll horizontally instead of
-      // squeezing six columns into whatever width the viewport happens to be.
+      // The board's own grid (KanbanBoard) gives every column an equal 1fr
+      // share, per the mockup's "CSS grid 4 колонки равной ширины" — no more
+      // fixed width / horizontal scroll now that there are only four.
       // Column background is the zebra tint per the mockup ("зебра/фон
       // колонки"); its own right border is what separates it from the next
       // column, not a gap.
-      className="flex max-h-[calc(100dvh-20rem)] w-72 shrink-0 flex-col border-r border-border-weak bg-zebra"
+      className="flex max-h-[calc(100dvh-22rem)] min-h-40 flex-col border-r border-border-weak bg-zebra last:border-r-0"
     >
       <header className="flex items-baseline justify-between border-b-2 border-foreground px-3 pt-3 pb-2">
         <h2 className="font-mono text-xs tracking-[0.08em] text-foreground uppercase">

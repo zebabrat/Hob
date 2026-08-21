@@ -165,7 +165,15 @@ html {
   --destructive: #b63539;
   --border: #d6dade;
   --border-weak: #e7eaec;
-  --input: #e7eaec;
+  /*
+   * Matches --border, not --border-weak: the mockup's own underlined
+   * fields use #d6dade for an empty field's line (see 1f's password
+   * field), not the fainter #e7eaec reserved for internal row dividers.
+   * That fainter value here read as "no line at all" against the
+   * #eaecee page background — too little contrast to register as an
+   * underline until the field had a value and jumped to full foreground.
+   */
+  --input: #d6dade;
   --ring: #c07200;
   --radius: 0rem;
 
@@ -210,5 +218,56 @@ html {
   }
   html {
     @apply font-sans;
+  }
+  /*
+   * Tailwind's preflight resets `button { cursor: default }` — every plain
+   * <button> in the app (filter chips, view toggle, "+ Application", modal
+   * close, etc.) inherited that instead of a pointer. `:disabled` is left
+   * alone: those already carry `disabled:pointer-events-none`, so no hover
+   * state reaches them regardless of the cursor value.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
+/*
+ * Loading states, in the same restrained vocabulary as everything else: no
+ * spinner icon (there are none in this system), no color the rest of the
+ * app doesn't already use. Two building blocks —
+ *  - .skeleton: a shimmering placeholder block, shaped like the content
+ *    that will replace it (see BoardSkeleton, ApplicationDetailSkeleton,
+ *    etc.) so the page doesn't jump once data arrives.
+ *  - loader-sweep: a single accent bar crossing a hairline track, used by
+ *    PageLoader for the moment before any page layout is known yet (the
+ *    auth check, a lazy route chunk).
+ */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background-image: linear-gradient(
+    100deg,
+    var(--zebra) 30%,
+    var(--border-weak) 50%,
+    var(--zebra) 70%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes loader-sweep {
+  0% {
+    left: -35%;
+  }
+  100% {
+    left: 100%;
   }
 }

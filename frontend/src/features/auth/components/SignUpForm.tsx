@@ -1,15 +1,20 @@
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
-import { PASSWORD_MIN_LENGTH } from '@hob/shared'
+import { isPasswordStrongEnough } from '@hob/shared'
 import { useSignUp } from '../hooks/useSignUp'
 import { readSignUpValues } from '../helpers/formValues'
 import { AuthCard } from './AuthCard'
 import { FormError } from 'shared/components/FormError'
+import { PasswordField } from './PasswordField'
+import { PasswordStrengthMeter } from './PasswordStrengthMeter'
 import { SubmitButton } from 'shared/components/SubmitButton'
 import { TextField } from 'shared/components/TextField'
 
 export function SignUpForm() {
   const { submit, error, isSubmitting } = useSignUp()
+  const [password, setPassword] = useState('')
+  const isPasswordTooWeak = !isPasswordStrongEnough(password)
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -36,16 +41,6 @@ export function SignUpForm() {
         <FormError message={error} />
 
         <TextField
-          label="Email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          required
-          disabled={isSubmitting}
-        />
-
-        <TextField
           label="Name"
           name="name"
           type="text"
@@ -55,16 +50,33 @@ export function SignUpForm() {
         />
 
         <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
           required
           disabled={isSubmitting}
-          hint={`At least ${PASSWORD_MIN_LENGTH} characters`}
         />
 
-        <SubmitButton isSubmitting={isSubmitting} pendingLabel="Creating account…">
+        <div>
+          <PasswordField
+            label="Password"
+            name="password"
+            autoComplete="new-password"
+            required
+            disabled={isSubmitting}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <PasswordStrengthMeter password={password} />
+        </div>
+
+        <SubmitButton
+          isSubmitting={isSubmitting}
+          disabled={isPasswordTooWeak}
+          pendingLabel="Creating account…"
+        >
           Create account
         </SubmitButton>
       </form>

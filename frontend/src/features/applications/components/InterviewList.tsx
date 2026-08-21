@@ -23,6 +23,14 @@ function formatScheduledAt(scheduledAt: string | null): string | null {
   })
 }
 
+/** "14 AUG" — the round list's own left-column date, mono per the mockup. */
+function formatRoundDate(scheduledAt: string | null): string | null {
+  if (!scheduledAt) return null
+  return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' })
+    .format(new Date(scheduledAt))
+    .toUpperCase()
+}
+
 export function InterviewList({
   interviews,
   pendingId,
@@ -55,7 +63,9 @@ export function InterviewList({
       <FormError message={error} />
 
       {interviews.length === 0 && (
-        <p className="text-sm text-muted-foreground">No interview rounds yet.</p>
+        <p className="border-t border-border-weak py-4 text-sm text-text-tertiary">
+          No interview rounds yet.
+        </p>
       )}
 
       {interviews.map((interview) =>
@@ -72,40 +82,46 @@ export function InterviewList({
         ) : (
           <div
             key={interview.id}
-            className="flex items-start justify-between gap-3 rounded-md bg-muted p-3"
+            className="grid grid-cols-[5.75rem_1fr] gap-4 border-t border-border-weak py-4"
           >
+            <div className="font-mono text-[0.625rem] tracking-[0.06em] text-text-tertiary uppercase">
+              {formatRoundDate(interview.scheduledAt) ?? '—'}
+            </div>
             <div>
-              <p className="text-sm font-medium text-foreground">{interview.round}</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-base font-medium text-foreground">{interview.round}</p>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(interview.id)}
+                    disabled={pendingId === interview.id}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete(interview.id)}
+                    disabled={pendingId === interview.id}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {pendingId === interview.id ? 'Removing…' : 'Delete'}
+                  </Button>
+                </div>
+              </div>
+              {interview.notes && (
+                <p className="mt-1.5 text-[0.84375rem] leading-relaxed text-text-secondary">
+                  {interview.notes}
+                </p>
+              )}
               {formatScheduledAt(interview.scheduledAt) && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-2 font-mono text-[0.59375rem] tracking-[0.06em] text-text-tertiary uppercase">
                   {formatScheduledAt(interview.scheduledAt)}
                 </p>
               )}
-              {interview.notes && (
-                <p className="mt-1 text-sm text-text-secondary">{interview.notes}</p>
-              )}
-            </div>
-
-            <div className="flex shrink-0 gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingId(interview.id)}
-                disabled={pendingId === interview.id}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onDelete(interview.id)}
-                disabled={pendingId === interview.id}
-                className="text-destructive hover:text-destructive"
-              >
-                {pendingId === interview.id ? 'Removing…' : 'Delete'}
-              </Button>
             </div>
           </div>
         ),

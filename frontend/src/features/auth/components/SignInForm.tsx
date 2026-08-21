@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { useSignIn } from '../hooks/useSignIn'
 import { readSignInValues } from '../helpers/formValues'
 import { AuthCard } from './AuthCard'
+import { PasswordField } from './PasswordField'
 import { FormError } from 'shared/components/FormError'
 import { SubmitButton } from 'shared/components/SubmitButton'
 import { TextField } from 'shared/components/TextField'
@@ -44,10 +45,9 @@ export function SignInForm() {
           disabled={isSubmitting}
         />
 
-        <TextField
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           disabled={isSubmitting}

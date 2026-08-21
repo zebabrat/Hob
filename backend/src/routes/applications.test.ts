@@ -26,6 +26,7 @@ const { prismaMock } = vi.hoisted(() => ({
       delete: vi.fn(),
       groupBy: vi.fn(),
       aggregate: vi.fn(),
+      count: vi.fn(),
     },
     statusChange: { create: vi.fn() },
     interview: { create: vi.fn() },
@@ -53,10 +54,16 @@ const APPLICATION = {
   userId: ALICE.id,
   company: 'Acme',
   position: 'Backend Engineer',
+  recruiter: null,
   status: 'APPLIED' as const,
+  priority: 'MEDIUM' as const,
   salary: 180_000,
+  salaryType: null,
   workFormat: 'HYBRID' as const,
   jobUrl: 'https://example.com/jobs/1',
+  source: [] as string[],
+  offerDeadline: null,
+  labels: [] as string[],
   summary: null,
   notes: null,
   appliedDate: new Date('2026-08-01T00:00:00.000Z'),
@@ -64,6 +71,7 @@ const APPLICATION = {
   updatedAt: new Date('2026-08-01T09:00:00.000Z'),
   interviews: [],
   attachments: [],
+  statusChanges: [],
 };
 
 const NEW_APPLICATION = {
@@ -123,6 +131,29 @@ describe('POST /api/applications', () => {
     expect(data.appliedDate).toBeInstanceOf(Date);
   });
 
+  it('accepts more than one source and a salary type', async () => {
+    prismaMock.application.create.mockResolvedValue({
+      ...APPLICATION,
+      source: ['LinkedIn', 'Referral'],
+      salaryType: 'NET',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/applications',
+      cookies: COOKIES,
+      payload: { ...NEW_APPLICATION, source: ['LinkedIn', 'Referral'], salaryType: 'NET' },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().source).toEqual(['LinkedIn', 'Referral']);
+    expect(response.json().salaryType).toBe('NET');
+
+    const data = prismaMock.application.create.mock.calls[0]?.[0]?.data;
+    expect(data.source).toEqual(['LinkedIn', 'Referral']);
+    expect(data.salaryType).toBe('NET');
+  });
+
   it('records the first status change, naming no prior status', async () => {
     prismaMock.application.create.mockResolvedValue(APPLICATION);
 
@@ -151,6 +182,21 @@ describe('POST /api/applications', () => {
 
     // userId is not a writable field, so naming it is a bad request rather than
     // a way to file an application under somebody else's account.
+    expect(response.statusCode).toBe(400);
+    expect(prismaMock.application.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an implausible year rather than storing a date the database driver cannot read back', async () => {
+    // A native date input's own validation guarantees YYYY-MM-DD, not a sane
+    // year — found by hand when a mistyped "22026" sailed through unbounded
+    // coercion, got stored, and 500ed every later read of that row.
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/applications',
+      cookies: COOKIES,
+      payload: { ...NEW_APPLICATION, appliedDate: '22026-08-01T00:00:00.000Z' },
+    });
+
     expect(response.statusCode).toBe(400);
     expect(prismaMock.application.create).not.toHaveBeenCalled();
   });
@@ -728,11 +774,15 @@ describe('POST /api/applications/:id/attachments', () => {
 
 describe('GET /api/applications/analytics', () => {
   /*
-   * loadAnalytics issues its five reads inside one Promise.all, in this
-   * literal order: status groupBy, workFormat groupBy, salary aggregate,
-   * overTime $queryRaw, stage-duration $queryRaw. JS evaluates that array
-   * left to right before Promise.all awaits it, so mockResolvedValueOnce
-   * calls queued in the same order land on the query they are meant for.
+   * loadAnalytics issues its reads inside one Promise.all, in this literal
+   * order: status groupBy, workFormat groupBy, salary aggregate, then eight
+   * $queryRaw calls (overTime, stageTransitions, bySource, byRole,
+   * responseBuckets, medianResponse, reachedInterview, offersEver), then
+   * five application.count calls (sourceUnspecified, noResponse,
+   * rejectedBeforeInterview, rejectedAfterInterview, withdrawn). JS evaluates
+   * that array left to right before Promise.all awaits it, so
+   * mockResolvedValueOnce calls queued in the same order land on the query
+   * they are meant for.
    */
   function mockAnalyticsQueries({
     statusCounts = [],
@@ -744,7 +794,18 @@ describe('GET /api/applications/analytics', () => {
       _count: { salary: 0 },
     },
     overTimeRows = [],
-    stageRows = [],
+    transitionRows = [],
+    sourceRows = [],
+    roleRows = [],
+    responseBucketRows = [],
+    medianDays = null,
+    reachedInterview = 0,
+    offers = 0,
+    sourceUnspecified = 0,
+    noResponse = 0,
+    rejectedBeforeInterview = 0,
+    rejectedAfterInterview = 0,
+    withdrawn = 0,
   }: {
     statusCounts?: { status: string; _count: { _all: number } }[]
     workFormatCounts?: { workFormat: string | null; _count: { _all: number } }[]
@@ -755,13 +816,38 @@ describe('GET /api/applications/analytics', () => {
       _count: { salary: number }
     }
     overTimeRows?: { period: Date; count: number }[]
-    stageRows?: { status: string; avgDays: number | null; sampleCount: number }[]
+    transitionRows?: { from_status: string; to_status: string; median_days: number | null; sample_count: number }[]
+    sourceRows?: { key: string; sent: number; interviewed: number }[]
+    roleRows?: { key: string; sent: number; interviewed: number }[]
+    responseBucketRows?: { bucket: string; count: number }[]
+    medianDays?: number | null
+    reachedInterview?: number
+    offers?: number
+    sourceUnspecified?: number
+    noResponse?: number
+    rejectedBeforeInterview?: number
+    rejectedAfterInterview?: number
+    withdrawn?: number
   } = {}) {
     prismaMock.application.groupBy
       .mockResolvedValueOnce(statusCounts)
       .mockResolvedValueOnce(workFormatCounts);
     prismaMock.application.aggregate.mockResolvedValueOnce(salaryAgg);
-    prismaMock.$queryRaw.mockResolvedValueOnce(overTimeRows).mockResolvedValueOnce(stageRows);
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce(overTimeRows)
+      .mockResolvedValueOnce(transitionRows)
+      .mockResolvedValueOnce(sourceRows)
+      .mockResolvedValueOnce(roleRows)
+      .mockResolvedValueOnce(responseBucketRows)
+      .mockResolvedValueOnce([{ median: medianDays }])
+      .mockResolvedValueOnce([{ count: reachedInterview }])
+      .mockResolvedValueOnce([{ count: offers }]);
+    prismaMock.application.count
+      .mockResolvedValueOnce(sourceUnspecified)
+      .mockResolvedValueOnce(noResponse)
+      .mockResolvedValueOnce(rejectedBeforeInterview)
+      .mockResolvedValueOnce(rejectedAfterInterview)
+      .mockResolvedValueOnce(withdrawn);
   }
 
   it('401s without a session', async () => {
@@ -791,6 +877,7 @@ describe('GET /api/applications/analytics', () => {
       { status: 'SCREENING', count: 0 },
       { status: 'INTERVIEW', count: 0 },
       { status: 'OFFER', count: 0 },
+      { status: 'ACCEPTED', count: 0 },
       { status: 'REJECTED', count: 0 },
       { status: 'WITHDRAWN', count: 0 },
     ]);
@@ -800,26 +887,35 @@ describe('GET /api/applications/analytics', () => {
       { workFormat: 'ONSITE', count: 0 },
     ]);
     expect(body.workFormatUnspecified).toBe(0);
-    expect(body.avgTimePerStage).toEqual(
-      expect.arrayContaining(
-        ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER', 'REJECTED', 'WITHDRAWN'].map((status) => ({
-          status,
-          avgDays: null,
-          sampleCount: 0,
-        })),
-      ),
-    );
+    // Every one of the three real forward transitions gets a row, just an empty one.
+    expect(body.stageTransitions).toEqual([
+      { from: 'APPLIED', to: 'SCREENING', medianDays: null, sampleCount: 0 },
+      { from: 'SCREENING', to: 'INTERVIEW', medianDays: null, sampleCount: 0 },
+      { from: 'INTERVIEW', to: 'OFFER', medianDays: null, sampleCount: 0 },
+    ]);
+    expect(body.bySource).toEqual([]);
+    expect(body.byRole).toEqual([]);
+    expect(body.responseTimeDistribution).toEqual([
+      { bucket: '1-2', count: 0 },
+      { bucket: '3-4', count: 0 },
+      { bucket: '5-7', count: 0 },
+      { bucket: '8-14', count: 0 },
+      { bucket: '15-21', count: 0 },
+      { bucket: '22-30', count: 0 },
+      { bucket: '30+', count: 0 },
+    ]);
     expect(body.salaryStats).toEqual({ min: null, max: null, avg: null, count: 0 });
-    // No applications at all: a 0-of-0 rejection rate reads as 0, not NaN.
     expect(body.summary).toEqual({
       totalApplications: 0,
-      activeApplications: 0,
+      reachedInterview: 0,
+      medianDaysToFirstResponse: null,
       offers: 0,
-      rejectionRate: 0,
     });
+    // Below 5 applications, an insight would be noise rather than signal.
+    expect(body.seasonSummary).toEqual([]);
   });
 
-  it('reports counts, durations and the salary range from what the database sends back', async () => {
+  it('reports counts, conversions and the salary range from what the database sends back', async () => {
     mockAnalyticsQueries({
       statusCounts: [
         { status: 'APPLIED', _count: { _all: 2 } },
@@ -838,10 +934,24 @@ describe('GET /api/applications/analytics', () => {
         _count: { salary: 3 },
       },
       overTimeRows: [
-        { period: new Date('2026-07-01T00:00:00.000Z'), count: 2 },
-        { period: new Date('2026-08-01T00:00:00.000Z'), count: 3 },
+        { period: new Date('2026-07-06T00:00:00.000Z'), count: 2 },
+        { period: new Date('2026-08-03T00:00:00.000Z'), count: 3 },
       ],
-      stageRows: [{ status: 'APPLIED', avgDays: 3.5, sampleCount: 4 }],
+      transitionRows: [
+        { from_status: 'APPLIED', to_status: 'SCREENING', median_days: 2.5, sample_count: 3 },
+      ],
+      sourceRows: [{ key: 'Referral', sent: 3, interviewed: 2 }],
+      roleRows: [{ key: 'Frontend Engineer', sent: 5, interviewed: 1 }],
+      responseBucketRows: [
+        { bucket: '3-4', count: 2 },
+        { bucket: '8-14', count: 1 },
+      ],
+      medianDays: 4.5,
+      reachedInterview: 2,
+      offers: 1,
+      sourceUnspecified: 2,
+      noResponse: 1,
+      rejectedBeforeInterview: 1,
     });
 
     const response = await app.inject({
@@ -872,29 +982,51 @@ describe('GET /api/applications/analytics', () => {
     // The two applications with no format picked are counted, not dropped —
     // otherwise this and totalApplications could never be reconciled.
     expect(body.workFormatUnspecified).toBe(2);
-    // "YYYY-MM": date_trunc always lands on the 1st, so the day is not news.
+    // The Monday each week starts on, not a calendar month.
     expect(body.overTime).toEqual([
-      { period: '2026-07', count: 2 },
-      { period: '2026-08', count: 3 },
+      { period: '2026-07-06', count: 2 },
+      { period: '2026-08-03', count: 3 },
     ]);
-    expect(body.avgTimePerStage).toContainEqual({
-      status: 'APPLIED',
-      avgDays: 3.5,
-      sampleCount: 4,
+    expect(body.stageTransitions).toContainEqual({
+      from: 'APPLIED',
+      to: 'SCREENING',
+      medianDays: 2.5,
+      sampleCount: 3,
     });
-    // A status nothing has ever reached still gets a row, just an empty one.
-    expect(body.avgTimePerStage).toContainEqual({
-      status: 'WITHDRAWN',
-      avgDays: null,
+    // A transition that has never happened still gets a row, just an empty one.
+    expect(body.stageTransitions).toContainEqual({
+      from: 'INTERVIEW',
+      to: 'OFFER',
+      medianDays: null,
       sampleCount: 0,
+    });
+    expect(body.bySource).toEqual([
+      { source: 'Referral', sent: 3, interviewed: 2, conversionRate: 2 / 3 },
+    ]);
+    expect(body.sourceUnspecified).toBe(2);
+    expect(body.byRole).toEqual([
+      { role: 'Frontend Engineer', sent: 5, interviewed: 1, conversionRate: 1 / 5 },
+    ]);
+    expect(body.responseTimeDistribution).toContainEqual({ bucket: '3-4', count: 2 });
+    expect(body.responseTimeDistribution).toContainEqual({ bucket: '8-14', count: 1 });
+    expect(body.responseTimeDistribution).toContainEqual({ bucket: '1-2', count: 0 });
+    expect(body.lost).toEqual({
+      noResponse: 1,
+      rejectedBeforeInterview: 1,
+      rejectedAfterInterview: 0,
+      withdrawn: 0,
     });
     expect(body.salaryStats).toEqual({ min: 120_000, max: 200_000, avg: 160_000, count: 3 });
     expect(body.summary).toEqual({
       totalApplications: 5,
-      // REJECTED and WITHDRAWN are the only two that do not count as active.
-      activeApplications: 4,
+      reachedInterview: 2,
+      medianDaysToFirstResponse: 4.5,
       offers: 1,
-      rejectionRate: 1 / 5,
     });
+    // 5 applications clears the noise floor, and there is exactly one real
+    // signal in this fixture (one transition has data, one source alone
+    // cannot be compared against another) — the slowest-step insight.
+    expect(body.seasonSummary).toHaveLength(1);
+    expect(body.seasonSummary[0]).toContain('Applied → Screening');
   });
 });

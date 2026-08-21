@@ -27,7 +27,7 @@ export function useSignUp() {
       try {
         // An empty optional name must go as null, not as an empty string.
         setUser(await signUp({ ...credentials, name: name || null }))
-        void navigate('/', { replace: true })
+        void navigate('/board', { replace: true })
       } catch (err) {
         setError(toFormErrorMessage(err))
         setIsSubmitting(false)

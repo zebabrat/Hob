@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { ErrorResponse } from '@hob/shared';
 import {
+  analyticsQuerySchema,
   analyticsResponseSchema,
   applicationCreateInputSchema,
   applicationDtoSchema,
@@ -77,8 +78,14 @@ export const applicationRoutes: FastifyPluginAsyncZod = async (app) => {
    */
   app.get(
     '/analytics',
-    { schema: { response: { 200: analyticsResponseSchema, 401: errorResponseSchema } } },
-    async (request, reply) => reply.send(await loadAnalytics(currentUser(request).id)),
+    {
+      schema: {
+        querystring: analyticsQuerySchema,
+        response: { 200: analyticsResponseSchema, 401: errorResponseSchema },
+      },
+    },
+    async (request, reply) =>
+      reply.send(await loadAnalytics(currentUser(request).id, request.query.period)),
   );
 
   app.get(

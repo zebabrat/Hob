@@ -3,10 +3,20 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "shared/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, placeholder, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive
       type={type}
+      // A single space, not undefined, when the caller gives no placeholder:
+      // :placeholder-shown only exists at all when a placeholder attribute is
+      // present, so a field with none (e.g. the sign-in password field) never
+      // matches it — not-placeholder-shown then matches *unconditionally*,
+      // permanently darkening its underline whether or not it has a value
+      // (found by hand: password looked "filled" from page load, while email,
+      // which does pass a placeholder, correctly started light). A blank
+      // space is invisible but still a real placeholder, so the pseudo-class
+      // reads the field's actual empty/filled state everywhere.
+      placeholder={placeholder ?? ' '}
       data-slot="input"
       className={cn(
         // Underlined, not boxed — the field baseline is the only border, per
