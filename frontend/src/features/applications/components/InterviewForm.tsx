@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { DATETIME_INPUT_MAX, DATETIME_INPUT_MIN } from 'shared/helpers/dateBounds'
 import { FormError } from 'shared/components/FormError'
 import { SubmitButton } from 'shared/components/SubmitButton'
 import { TextField } from 'shared/components/TextField'
@@ -49,6 +50,8 @@ export function InterviewForm({
         label="Scheduled at"
         name="scheduledAt"
         type="datetime-local"
+        min={DATETIME_INPUT_MIN}
+        max={DATETIME_INPUT_MAX}
         defaultValue={initialValues?.scheduledAt}
         hint="Optional"
         disabled={isSubmitting}

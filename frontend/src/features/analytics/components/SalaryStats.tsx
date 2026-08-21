@@ -1,10 +1,15 @@
 import type { SalaryStats as SalaryStatsData } from '@hob/shared'
-import { formatSalary } from 'shared/helpers/formatSalary'
+import { DEFAULT_CURRENCY_SYMBOL, formatSalary } from 'shared/helpers/formatSalary'
 import { EmptyState } from './EmptyState'
 import { StatTile } from './StatTile'
 
 interface SalaryStatsProps {
   salaryStats: SalaryStatsData
+}
+
+function withCurrency(value: number | null): string {
+  const formatted = formatSalary(value)
+  return formatted ? `${DEFAULT_CURRENCY_SYMBOL}${formatted}` : '—'
 }
 
 export function SalaryStats({ salaryStats }: SalaryStatsProps) {
@@ -16,9 +21,9 @@ export function SalaryStats({ salaryStats }: SalaryStatsProps) {
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      <StatTile label="Lowest" value={formatSalary(salaryStats.min) ?? '—'} />
-      <StatTile label="Average" value={formatSalary(avg) ?? '—'} />
-      <StatTile label="Highest" value={formatSalary(salaryStats.max) ?? '—'} />
+      <StatTile label="Lowest" value={withCurrency(salaryStats.min)} />
+      <StatTile label="Average" value={withCurrency(avg)} />
+      <StatTile label="Highest" value={withCurrency(salaryStats.max)} />
     </div>
   )
 }

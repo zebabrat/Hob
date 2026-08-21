@@ -2,3 +2,4 @@
 // the app is concerned; everything under them is this feature's own business.
 export { KanbanBoard } from './components/KanbanBoard'
 export { ApplicationDetail } from './components/ApplicationDetail'
+export { ArchiveList } from './components/ArchiveList'

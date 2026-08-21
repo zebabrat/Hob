@@ -22,12 +22,16 @@ describe('validateSignIn', () => {
 })
 
 describe('validateSignUp', () => {
+  // Long enough and varied enough to clear scorePassword's minimum — plain
+  // 'supersecret' is too weak now that sign-up enforces that too.
+  const STRONG_PASSWORD = 'Sup3rSecret!42'
+
   it('accepts a filled form with and without a name', () => {
     expect(
-      validateSignUp({ email: 'alice@example.com', password: 'supersecret', name: 'Alice' }),
+      validateSignUp({ email: 'alice@example.com', password: STRONG_PASSWORD, name: 'Alice' }),
     ).toBeNull()
     expect(
-      validateSignUp({ email: 'alice@example.com', password: 'supersecret', name: '' }),
+      validateSignUp({ email: 'alice@example.com', password: STRONG_PASSWORD, name: '' }),
     ).toBeNull()
   })
 
@@ -36,6 +40,14 @@ describe('validateSignUp', () => {
 
     expect(
       validateSignUp({ email: 'alice@example.com', password: tooShort, name: '' }),
+    ).toBeTypeOf('string')
+  })
+
+  it('rejects a password that is long enough but too weak', () => {
+    // 8+ characters, but a single repeated word — below MIN_PASSWORD_STRENGTH
+    // even though PASSWORD_MIN_LENGTH alone would let it through.
+    expect(
+      validateSignUp({ email: 'alice@example.com', password: 'lowercase', name: '' }),
     ).toBeTypeOf('string')
   })
 })

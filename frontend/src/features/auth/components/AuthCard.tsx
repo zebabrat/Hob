@@ -23,7 +23,7 @@ interface AuthCardProps {
  * presented as real, not a design placeholder a viewer can tell is
  * illustrative. Kept the visual shape (three items, divided by hairlines)
  * but with the same short, honest value-prop copy the rest of the app
- * already uses (see Footer, HomePage) instead of numbers.
+ * already uses (see Footer) instead of numbers.
  */
 const VALUE_PROPS = [
   { label: 'Track', text: 'Every application, one place.' },

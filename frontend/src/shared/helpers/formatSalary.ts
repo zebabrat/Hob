@@ -1,4 +1,11 @@
 /**
+ * The one currency every salary in the app is quoted in. There is no
+ * currency field on the application — see the Prisma schema comment — so
+ * this is a fixed display preset rather than a per-application value.
+ */
+export const DEFAULT_CURRENCY_SYMBOL = '$'
+
+/**
  * 180000 becomes "180 000".
  *
  * Grouped by hand rather than with toLocaleString: the separator that produces

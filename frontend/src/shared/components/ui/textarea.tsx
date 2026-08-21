@@ -2,9 +2,11 @@ import * as React from "react"
 
 import { cn } from "shared/lib/utils"
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({ className, placeholder, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
+      // See Input's identical fallback — same not-placeholder-shown pitfall.
+      placeholder={placeholder ?? ' '}
       data-slot="textarea"
       className={cn(
         // Same underline treatment as Input — see the notes there.

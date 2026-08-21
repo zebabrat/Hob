@@ -6,9 +6,11 @@ import type {
   InterviewCreateInput,
   InterviewDto,
   InterviewUpdateInput,
+  Priority,
+  SalaryType,
   WorkFormat,
 } from '@hob/shared'
-import { workFormatLabel } from 'shared/helpers/labels'
+import { salaryTypeLabel, workFormatLabel } from 'shared/helpers/labels'
 import { toDateTimeLocalValue } from './dateTimeLocal'
 import type { ApplicationEditFormValues, ApplicationFormValues, InterviewFormValues } from '../types'
 
@@ -46,15 +48,22 @@ export function workFormatSelectLabel(value: string): string {
   return workFormatLabel(value as WorkFormat) ?? value
 }
 
-export function readApplicationValues(form: HTMLFormElement): ApplicationFormValues {
-  return {
-    company: readField(form, 'company'),
-    position: readField(form, 'position'),
-    appliedDate: readField(form, 'appliedDate'),
-    salary: readField(form, 'salary'),
-    workFormat: readWorkFormat(form),
-    jobUrl: readField(form, 'jobUrl'),
-  }
+/** Same sentinel trick as UNSPECIFIED_WORK_FORMAT, for the salary-type Select. */
+export const UNSPECIFIED_SALARY_TYPE = '__unspecified__'
+
+function readSalaryType(form: HTMLFormElement): string {
+  const value = readField(form, 'salaryType')
+  return value === UNSPECIFIED_SALARY_TYPE ? '' : value
+}
+
+export function salaryTypeSelectLabel(value: string): string {
+  if (value === UNSPECIFIED_SALARY_TYPE || value === '') return 'Not specified'
+  return salaryTypeLabel(value as SalaryType) ?? value
+}
+
+/** Digits only — the amount field is a plain text input (no number-spinner), so nothing else strips a pasted "$180,000" down to "180000" for it. */
+export function sanitizeSalaryDigits(value: string): string {
+  return value.replace(/\D/g, '')
 }
 
 /**
@@ -68,11 +77,18 @@ export function toCreateInput(values: ApplicationFormValues): ApplicationCreateI
   return {
     company: values.company,
     position: values.position,
+    status: values.status,
+    priority: values.priority,
     // A date input gives YYYY-MM-DD; the contract coerces it to a date.
     appliedDate: new Date(values.appliedDate),
+    ...(values.recruiter ? { recruiter: values.recruiter } : {}),
     ...(values.salary ? { salary: Number(values.salary) } : {}),
+    ...(values.salaryType ? { salaryType: values.salaryType as SalaryType } : {}),
     ...(values.workFormat ? { workFormat: values.workFormat as WorkFormat } : {}),
     ...(values.jobUrl ? { jobUrl: values.jobUrl } : {}),
+    ...(values.source.length > 0 ? { source: values.source } : {}),
+    ...(values.labels.length > 0 ? { labels: values.labels } : {}),
+    ...(values.notes ? { notes: values.notes } : {}),
   }
 }
 
@@ -81,27 +97,48 @@ export function applicationToEditValues(application: ApplicationDto): Applicatio
   return {
     company: application.company,
     position: application.position,
+    recruiter: application.recruiter ?? '',
     status: application.status,
+    priority: application.priority,
     // ISO timestamp to what a date input expects; the time-of-day carried in
     // appliedDate is never shown, so truncating it loses nothing.
     appliedDate: application.appliedDate.slice(0, 10),
     salary: application.salary === null ? '' : String(application.salary),
+    salaryType: application.salaryType ?? '',
     workFormat: application.workFormat ?? '',
     jobUrl: application.jobUrl ?? '',
+    source: application.source,
+    offerDeadline: application.offerDeadline ? application.offerDeadline.slice(0, 10) : '',
+    labels: application.labels,
     summary: application.summary ?? '',
     notes: application.notes ?? '',
   }
 }
 
-export function readApplicationEditValues(form: HTMLFormElement): ApplicationEditFormValues {
+/**
+ * Position and Source are combobox/multiselect components with their own
+ * React state (see PositionField/SourceField) rather than a plain native
+ * input, so — like `labels` already was — their live value has to be passed
+ * in rather than read back off the DOM.
+ */
+export function readApplicationEditValues(
+  form: HTMLFormElement,
+  controlled: { labels: string[]; position: string; source: string[] },
+): ApplicationEditFormValues {
   return {
     company: readField(form, 'company'),
-    position: readField(form, 'position'),
+    position: controlled.position,
+    recruiter: readField(form, 'recruiter'),
     status: readField(form, 'status') as ApplicationStatus,
+    priority: readField(form, 'priority') as Priority,
     appliedDate: readField(form, 'appliedDate'),
     salary: readField(form, 'salary'),
+    salaryType: readSalaryType(form),
     workFormat: readWorkFormat(form),
     jobUrl: readField(form, 'jobUrl'),
+    source: controlled.source,
+    offerDeadline: readField(form, 'offerDeadline'),
+    labels: controlled.labels,
     summary: readField(form, 'summary'),
     notes: readField(form, 'notes'),
   }
@@ -120,11 +157,17 @@ export function toApplicationUpdateInput(values: ApplicationEditFormValues): App
   return {
     company: values.company,
     position: values.position,
+    recruiter: values.recruiter || null,
     status: values.status,
+    priority: values.priority,
     appliedDate: new Date(values.appliedDate),
     salary: values.salary ? Number(values.salary) : null,
+    salaryType: values.salaryType ? (values.salaryType as SalaryType) : null,
     workFormat: values.workFormat ? (values.workFormat as WorkFormat) : null,
     jobUrl: values.jobUrl || null,
+    source: values.source,
+    offerDeadline: values.offerDeadline ? new Date(values.offerDeadline) : null,
+    labels: values.labels,
     summary: values.summary || null,
     notes: values.notes || null,
   }

@@ -32,10 +32,18 @@ export function UserMenu() {
           <AvatarFallback>{initialOf(user)}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      {/*
+       * w-64 overrides the primitive's default w-(--anchor-width) — sized to
+       * match the trigger, which is fine for a menu of short items but pins
+       * this content to the 28px avatar's own width otherwise, clipping the
+       * email straight off (found by hand: "andryushkaz3005@g…").
+       */}
+      <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>
-          <p className="font-medium text-foreground">{user.name ?? user.email}</p>
-          {user.name && <p className="font-normal text-muted-foreground">{user.email}</p>}
+          <p className="truncate font-medium text-foreground">{user.name ?? user.email}</p>
+          {user.name && (
+            <p className="truncate font-normal text-muted-foreground">{user.email}</p>
+          )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={isSubmitting} onClick={() => void submit()}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ApplicationDto, ApplicationStatus } from '@hob/shared'
-import { BOARD_COLUMNS, groupByStatus } from './groupByStatus'
+import { ARCHIVE_COLUMNS, BOARD_COLUMNS, groupByStatus } from './groupByStatus'
 
 function application(
   id: number,
@@ -12,10 +12,16 @@ function application(
     userId: 1,
     company: `Company ${id}`,
     position: 'Backend Engineer',
+    recruiter: null,
+    priority: 'MEDIUM',
     status,
     salary: null,
     workFormat: null,
     jobUrl: null,
+    source: [],
+    salaryType: null,
+    offerDeadline: null,
+    labels: [],
     summary: null,
     notes: null,
     appliedDate: '2026-08-01T00:00:00.000Z',
@@ -23,11 +29,12 @@ function application(
     updatedAt,
     interviews: [],
     attachments: [],
+    statusChanges: [],
   }
 }
 
 describe('groupByStatus', () => {
-  it('returns every column in board order, empty ones included', () => {
+  it('returns every board column in order, empty ones included, by default', () => {
     const columns = groupByStatus([])
 
     expect(columns.map((column) => column.status)).toEqual([
@@ -35,8 +42,6 @@ describe('groupByStatus', () => {
       'SCREENING',
       'INTERVIEW',
       'OFFER',
-      'REJECTED',
-      'WITHDRAWN',
     ])
     // An empty column still has to be rendered, or the board reflows mid-drag.
     expect(columns.every((column) => column.applications.length === 0)).toBe(true)
@@ -55,7 +60,6 @@ describe('groupByStatus', () => {
 
     expect(byStatus['APPLIED']).toEqual([1, 3])
     expect(byStatus['OFFER']).toEqual([2])
-    expect(byStatus['REJECTED']).toEqual([])
   })
 
   it('sorts a column with the most recently updated first', () => {
@@ -71,9 +75,23 @@ describe('groupByStatus', () => {
     expect(interview?.applications.map((item) => item.id)).toEqual([2, 3, 1])
   })
 
-  it('covers every status the contract allows', () => {
-    // A status added to the contract without a column here would silently drop
-    // its applications off the board.
-    expect(BOARD_COLUMNS).toHaveLength(6)
+  it('covers the four statuses a normal application moves through', () => {
+    expect(BOARD_COLUMNS).toHaveLength(4)
+  })
+
+  it('groups the three archive statuses when passed ARCHIVE_COLUMNS', () => {
+    const columns = groupByStatus(
+      [
+        application(1, 'ACCEPTED', '2026-08-01T09:00:00.000Z'),
+        application(2, 'REJECTED', '2026-08-01T09:00:00.000Z'),
+        application(3, 'WITHDRAWN', '2026-08-01T09:00:00.000Z'),
+      ],
+      ARCHIVE_COLUMNS,
+    )
+
+    expect(columns.map((column) => column.status)).toEqual(['ACCEPTED', 'REJECTED', 'WITHDRAWN'])
+    expect(columns[0]?.applications.map((item) => item.id)).toEqual([1])
+    expect(columns[1]?.applications.map((item) => item.id)).toEqual([2])
+    expect(columns[2]?.applications.map((item) => item.id)).toEqual([3])
   })
 })

@@ -39,6 +39,11 @@ enum ApplicationStatus {
   SCREENING
   INTERVIEW
   OFFER
+  /// Reached only from OFFER, by the detail page's "Accept offer" action —
+  /// the one positive terminal outcome, kept apart from REJECTED/WITHDRAWN
+  /// so the board's Archive tab and analytics' rejection rate never count a
+  /// won offer as a loss.
+  ACCEPTED
   REJECTED
   WITHDRAWN
 }
@@ -47,6 +52,17 @@ enum WorkFormat {
   REMOTE
   HYBRID
   ONSITE
+}
+
+enum SalaryType {
+  GROSS
+  NET
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 /// One job application, owned by the user who created it. Every route reaches
@@ -58,11 +74,50 @@ model Application {
   position String
   status   ApplicationStatus @default(APPLIED)
 
-  /// Whole currency units, as advertised. No currency field yet: adding one
-  /// later is additive, while guessing at it now would bake in a wrong default.
+  /// How much this one is worth chasing relative to the rest of the board —
+  /// entirely the applicant's own call, nothing derived. Defaults to MEDIUM
+  /// rather than being nullable: the board reads this as a permanent
+  /// left-edge stripe on every card (see ApplicationCardVisual), and a
+  /// fourth "unset" stripe color would just be a paler way of saying
+  /// "medium" without actually meaning anything different.
+  priority Priority @default(MEDIUM)
+
+  /// Who you actually talked to there — a name, not an account. The same
+  /// company can resurface a year later through a different person, and
+  /// "who was it last time" is exactly the thing memory fails at; this is
+  /// the durable answer. Free text, not a contacts table: there is nothing
+  /// here to relate across applications, only something to remember within
+  /// one.
+  recruiter String?
+
+  /// Whole currency units, as advertised. Still no currency field: the UI
+  /// only ever shows one fixed symbol ($) rather than a real per-application
+  /// unit, so a currency column would just store the same constant on every
+  /// row — additive to add later, once the app actually needs more than one.
   salary     Int?
+  salaryType SalaryType?
   workFormat WorkFormat?
   jobUrl     String?
+
+  /// Free text — "Referral", "Company site", "LinkedIn" — not an enum: the
+  /// set of channels someone applies through is open-ended and personal. A
+  /// Postgres text array rather than one string: a single application can
+  /// legitimately have found its way through more than one channel (e.g. a
+  /// referral who pointed at a listing also seen on LinkedIn), and analytics'
+  /// bySource breakdown counts a multi-source application toward every
+  /// channel it lists, same fan-out as byRole would if position ever became
+  /// multi-valued.
+  source String[] @default([])
+
+  /// Only meaningful once status is OFFER; null the rest of the time. Kept
+  /// as its own field rather than folded into notes so the board and the
+  /// detail page can read it structurally (a countdown, not free text).
+  offerDeadline DateTime?
+
+  /// Free-form tags entered on the create form ("Remote", "Referral").
+  /// A Postgres text array, not a join table — nobody reorders or renames a
+  /// tag across applications here, so the relational overhead buys nothing.
+  labels String[] @default([])
 
   /// Short summary of the posting, kept because listings disappear.
   summary String?

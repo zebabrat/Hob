@@ -1,4 +1,5 @@
 import type { AttachmentDto } from '@hob/shared'
+import { formatShortDate } from 'shared/helpers/formatShortDate'
 import { Button } from 'shared/components/ui/button'
 import { isImageFileName } from '../helpers/attachmentPreview'
 
@@ -16,7 +17,7 @@ function FileIcon() {
       stroke="currentColor"
       strokeWidth={1.5}
       aria-hidden="true"
-      className="h-10 w-10 shrink-0 text-muted-foreground"
+      className="h-8 w-8 shrink-0 text-muted-foreground"
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v5h5" />
@@ -26,22 +27,18 @@ function FileIcon() {
 
 export function AttachmentList({ attachments, deletingId, onDelete }: AttachmentListProps) {
   if (attachments.length === 0) {
-    return <p className="text-sm text-muted-foreground">No files yet.</p>
+    return <p className="border-t border-border-weak py-3 text-sm text-text-tertiary">No files yet.</p>
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul>
       {attachments.map((attachment) => (
         <li
           key={attachment.id}
-          className="flex items-center gap-3 rounded-md bg-muted p-2"
+          className="flex items-center gap-2.5 border-t border-border-weak py-3 last:border-b"
         >
           {isImageFileName(attachment.fileName) ? (
-            <img
-              src={attachment.blobUrl}
-              alt=""
-              className="h-10 w-10 shrink-0 rounded object-cover"
-            />
+            <img src={attachment.blobUrl} alt="" className="h-8 w-8 shrink-0 object-cover" />
           ) : (
             <FileIcon />
           )}
@@ -50,10 +47,14 @@ export function AttachmentList({ attachments, deletingId, onDelete }: Attachment
             href={attachment.blobUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 truncate text-sm text-foreground underline-offset-2 hover:underline"
+            className="flex-1 truncate font-mono text-[0.71875rem] text-foreground hover:underline"
           >
             {attachment.fileName}
           </a>
+
+          <span className="font-mono text-[0.625rem] text-text-tertiary">
+            {formatShortDate(attachment.uploadedAt)}
+          </span>
 
           <Button
             type="button"

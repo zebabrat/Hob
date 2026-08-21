@@ -5,7 +5,7 @@ interface StatTileProps {
   value: string
 }
 
-/** A single headline number — used by both SummaryCards and SalaryStats, so it lives on its own. */
+/** A single headline number — SalaryStats' three tiles. */
 export function StatTile({ label, value }: StatTileProps) {
   return (
     <Card>

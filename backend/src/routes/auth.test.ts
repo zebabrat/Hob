@@ -19,6 +19,10 @@ const { buildApp } = await import('../app.js');
 
 const ORIGIN = 'https://hob-frontend-jet.vercel.app';
 const ALICE = { id: 1, email: 'alice@example.com', name: 'Alice' };
+// Long enough and varied enough to clear scorePassword's minimum — sign-up
+// now enforces that, so the happy-path tests need a password that survives
+// it rather than merely PASSWORD_MIN_LENGTH.
+const STRONG_PASSWORD = 'Sup3rSecret!42';
 
 function uniqueEmailViolation() {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
@@ -44,7 +48,7 @@ describe('POST /api/auth/sign-up', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
-      payload: { email: 'alice@example.com', password: 'supersecret', name: 'Alice' },
+      payload: { email: 'alice@example.com', password: STRONG_PASSWORD, name: 'Alice' },
     });
 
     expect(response.statusCode).toBe(201);
@@ -67,12 +71,12 @@ describe('POST /api/auth/sign-up', () => {
     await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
-      payload: { email: 'alice@example.com', password: 'supersecret' },
+      payload: { email: 'alice@example.com', password: STRONG_PASSWORD },
     });
 
     const stored = prismaMock.user.create.mock.calls[0]?.[0]?.data?.password;
     expect(stored).toBeTypeOf('string');
-    expect(stored).not.toBe('supersecret');
+    expect(stored).not.toBe(STRONG_PASSWORD);
     expect(stored).toMatch(/^\$2[aby]\$/);
   });
 
@@ -82,7 +86,7 @@ describe('POST /api/auth/sign-up', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
-      payload: { email: 'alice@example.com', password: 'supersecret' },
+      payload: { email: 'alice@example.com', password: STRONG_PASSWORD },
     });
 
     expect(response.statusCode).toBe(409);
@@ -98,7 +102,7 @@ describe('POST /api/auth/sign-up', () => {
     const invalid = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
-      payload: { email: 'not-an-email', password: 'supersecret' },
+      payload: { email: 'not-an-email', password: STRONG_PASSWORD },
     });
 
     expect(short.statusCode).toBe(400);
@@ -106,11 +110,25 @@ describe('POST /api/auth/sign-up', () => {
     expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
+  it('rejects a password that is long enough but too weak', async () => {
+    // 8+ characters, but a single repeated word — scorePassword puts this
+    // well under the minimum even though PASSWORD_MIN_LENGTH alone would
+    // let it through.
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up',
+      payload: { email: 'alice@example.com', password: 'lowercase' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
   it('rejects unknown fields in the body', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up',
-      payload: { email: 'alice@example.com', password: 'supersecret', role: 'admin' },
+      payload: { email: 'alice@example.com', password: STRONG_PASSWORD, role: 'admin' },
     });
 
     expect(response.statusCode).toBe(400);

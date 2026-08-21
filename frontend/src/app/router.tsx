@@ -2,8 +2,8 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { UserMenu } from 'features/auth'
 import { ApplicationDetailPage } from 'pages/ApplicationDetailPage'
+import { ArchivePage } from 'pages/ArchivePage'
 import { BoardPage } from 'pages/BoardPage'
-import { HomePage } from 'pages/HomePage'
 import { SignInPage } from 'pages/SignInPage'
 import { SignUpPage } from 'pages/SignUpPage'
 import { AppLayout } from 'shared/components/AppLayout'
@@ -39,8 +39,10 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<HomePage />} />
+          {/* No standalone home screen — board is where a signed-in user lands. */}
+          <Route path="/" element={<Navigate to="/board" replace />} />
           <Route path="/board" element={<BoardPage />} />
+          <Route path="/archive" element={<ArchivePage />} />
           <Route path="/applications/:id" element={<ApplicationDetailPage />} />
           <Route
             path="/analytics"
@@ -67,7 +69,7 @@ export function AppRouter() {
             </RequireGuest>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/board" replace />} />
       </Routes>
     </BrowserRouter>
   )

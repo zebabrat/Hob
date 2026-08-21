@@ -1,5 +1,5 @@
-import type { ApplicationDto, AttachmentDto, InterviewDto } from '@hob/shared';
-import type { Attachment, Interview, Prisma } from '../generated/prisma/client.js';
+import type { ApplicationDto, AttachmentDto, InterviewDto, StatusChangeDto } from '@hob/shared';
+import type { Attachment, Interview, Prisma, StatusChange } from '../generated/prisma/client.js';
 
 /**
  * What "with all details" means, in one place. Both the list and the single
@@ -8,6 +8,7 @@ import type { Attachment, Interview, Prisma } from '../generated/prisma/client.j
 export const applicationInclude = {
   interviews: { orderBy: { createdAt: 'asc' } },
   attachments: { orderBy: { uploadedAt: 'asc' } },
+  statusChanges: { orderBy: { changedAt: 'asc' } },
 } satisfies Prisma.ApplicationInclude;
 
 type ApplicationWithRelations = Prisma.ApplicationGetPayload<{
@@ -22,6 +23,16 @@ export function toInterviewDto(interview: Interview): InterviewDto {
     scheduledAt: interview.scheduledAt?.toISOString() ?? null,
     notes: interview.notes,
     createdAt: interview.createdAt.toISOString(),
+  };
+}
+
+export function toStatusChangeDto(statusChange: StatusChange): StatusChangeDto {
+  return {
+    id: statusChange.id,
+    applicationId: statusChange.applicationId,
+    fromStatus: statusChange.fromStatus,
+    toStatus: statusChange.toStatus,
+    changedAt: statusChange.changedAt.toISOString(),
   };
 }
 
@@ -42,10 +53,16 @@ export function toApplicationDto(application: ApplicationWithRelations): Applica
     userId: application.userId,
     company: application.company,
     position: application.position,
+    recruiter: application.recruiter,
     status: application.status,
+    priority: application.priority,
     salary: application.salary,
+    salaryType: application.salaryType,
     workFormat: application.workFormat,
     jobUrl: application.jobUrl,
+    source: application.source,
+    offerDeadline: application.offerDeadline?.toISOString() ?? null,
+    labels: application.labels,
     summary: application.summary,
     notes: application.notes,
     appliedDate: application.appliedDate.toISOString(),
@@ -53,5 +70,6 @@ export function toApplicationDto(application: ApplicationWithRelations): Applica
     updatedAt: application.updatedAt.toISOString(),
     interviews: application.interviews.map(toInterviewDto),
     attachments: application.attachments.map(toAttachmentDto),
+    statusChanges: application.statusChanges.map(toStatusChangeDto),
   };
 }

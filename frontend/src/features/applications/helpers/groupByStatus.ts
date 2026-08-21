@@ -3,21 +3,28 @@ import { statusLabel } from 'shared/helpers/labels'
 import type { ApplicationColumn } from '../types'
 
 /**
- * The order columns appear on the board, left to right — this is the path an
- * application takes, with the two ways out at the end. What each one is
- * *called* comes from the shared label map, not a second copy of the text.
+ * The path a normal application takes, left to right on the board. Rejected
+ * and Withdrawn are not a fifth and sixth rung on this same ladder — they are
+ * off-ramps, reachable from any of the four, and live in the Archive tab
+ * instead of taking up board width per the mockup's "Отклонённые уходят в
+ * архив автоматически".
  */
-const BOARD_STATUS_ORDER: ApplicationStatus[] = [
+export const BOARD_STATUS_ORDER: ApplicationStatus[] = [
   'APPLIED',
   'SCREENING',
   'INTERVIEW',
   'OFFER',
-  'REJECTED',
-  'WITHDRAWN',
 ]
 
-export const BOARD_COLUMNS: { status: ApplicationStatus; title: string }[] =
-  BOARD_STATUS_ORDER.map((status) => ({ status, title: statusLabel(status) }))
+/** The three ways off the active board, shown on the Archive page instead. */
+export const ARCHIVE_STATUS_ORDER: ApplicationStatus[] = ['ACCEPTED', 'REJECTED', 'WITHDRAWN']
+
+function toColumns(statuses: ApplicationStatus[]): { status: ApplicationStatus; title: string }[] {
+  return statuses.map((status) => ({ status, title: statusLabel(status) }))
+}
+
+export const BOARD_COLUMNS = toColumns(BOARD_STATUS_ORDER)
+export const ARCHIVE_COLUMNS = toColumns(ARCHIVE_STATUS_ORDER)
 
 /** Most recently touched first: a card you just moved is the one you look for. */
 function byUpdatedAtDesc(a: ApplicationDto, b: ApplicationDto): number {
@@ -25,14 +32,18 @@ function byUpdatedAtDesc(a: ApplicationDto, b: ApplicationDto): number {
 }
 
 /**
- * Splits the flat list the API returns into one entry per column.
+ * Splits a flat application list into one entry per column.
  *
- * Every column is always present, empty ones included — a board that hides
- * "Offer" until something lands there would move the other columns sideways
- * mid-drag.
+ * Every column in `columns` is always present, empty ones included — a board
+ * that hides "Offer" until something lands there would move the other
+ * columns sideways mid-drag. Defaults to the board's four columns; the
+ * Archive page passes ARCHIVE_COLUMNS instead.
  */
-export function groupByStatus(applications: ApplicationDto[]): ApplicationColumn[] {
-  return BOARD_COLUMNS.map(({ status, title }) => ({
+export function groupByStatus(
+  applications: ApplicationDto[],
+  columns: { status: ApplicationStatus; title: string }[] = BOARD_COLUMNS,
+): ApplicationColumn[] {
+  return columns.map(({ status, title }) => ({
     status,
     title,
     applications: applications
