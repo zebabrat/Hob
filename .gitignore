@@ -17,3 +17,4 @@ backend/src/generated/
 
 # Привязка к проекту Vercel и локальный .env, который создаёт vercel link
 .vercel
+.env*
