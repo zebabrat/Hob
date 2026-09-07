@@ -45,3 +45,18 @@ export const SOURCE_SUGGESTIONS: string[] = [
   'Job fair',
   'X / Twitter',
 ]
+
+/** Common interview round names, roughly in the order a process tends to run them. */
+export const ROUND_SUGGESTIONS: string[] = [
+  'Screening',
+  'Recruiter call',
+  'Hiring manager',
+  'Technical',
+  'Coding challenge',
+  'System design',
+  'Behavioral',
+  'Culture fit',
+  'Panel',
+  'Onsite',
+  'Final',
+]

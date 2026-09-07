@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { InterviewDto } from '@hob/shared'
+import type { ApplicationStatus, InterviewDto } from '@hob/shared'
 import { FormError } from 'shared/components/FormError'
 import { Button } from 'shared/components/ui/button'
 import { interviewToFormValues } from '../helpers/formValues'
@@ -10,6 +10,10 @@ interface InterviewListProps {
   interviews: InterviewDto[]
   pendingId: number | 'new' | null
   error: string | null
+  /** Hidden once the application is resolved (accepted/rejected/withdrawn) — nothing left to schedule. Existing rounds still show, and can still be edited or deleted. */
+  showAddForm: boolean
+  /** Drives the new-round form's round-name field — see InterviewForm's lockedRoundName. */
+  applicationStatus: ApplicationStatus
   onAdd: (values: InterviewFormValues) => Promise<boolean>
   onUpdate: (id: number, values: InterviewFormValues) => Promise<boolean>
   onDelete: (id: number) => void
@@ -35,6 +39,8 @@ export function InterviewList({
   interviews,
   pendingId,
   error,
+  showAddForm,
+  applicationStatus,
   onAdd,
   onUpdate,
   onDelete,
@@ -127,13 +133,16 @@ export function InterviewList({
         ),
       )}
 
-      <InterviewForm
-        key={`new-${addFormKey}`}
-        submitLabel="Add round"
-        isSubmitting={pendingId === 'new'}
-        error={null}
-        onSubmit={(values) => void handleAdd(values)}
-      />
+      {showAddForm && (
+        <InterviewForm
+          key={`new-${addFormKey}`}
+          submitLabel="Add round"
+          isSubmitting={pendingId === 'new'}
+          error={null}
+          onSubmit={(values) => void handleAdd(values)}
+          lockedRoundName={applicationStatus === 'SCREENING' ? 'Screening' : undefined}
+        />
+      )}
     </div>
   )
 }

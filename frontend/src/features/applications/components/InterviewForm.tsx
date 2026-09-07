@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { DATETIME_INPUT_MAX, DATETIME_INPUT_MIN } from 'shared/helpers/dateBounds'
 import { FormError } from 'shared/components/FormError'
 import { SubmitButton } from 'shared/components/SubmitButton'
 import { TextField } from 'shared/components/TextField'
 import { Button } from 'shared/components/ui/button'
+import { Label } from 'shared/components/ui/label'
 import { readInterviewValues } from '../helpers/formValues'
 import type { InterviewFormValues } from '../types'
+import { RoundField } from './RoundField'
 import { TextAreaField } from './TextAreaField'
 
 interface InterviewFormProps {
@@ -17,6 +20,16 @@ interface InterviewFormProps {
   onSubmit: (values: InterviewFormValues) => void
   /** Only the edit instance offers a way out without saving. */
   onCancel?: () => void
+  /**
+   * Set only on the blank "add a new round" instance while the application
+   * is still in Screening — that stage is one homogeneous call, so asking
+   * for a name is a field nobody fills in meaningfully. Silently fixes the
+   * round to this name and hides the field, same as AddRoundDialog. Editing
+   * an existing round always shows the field regardless of stage: it may
+   * already carry a real name from before the application reached Screening
+   * again, or from before this rule existed.
+   */
+  lockedRoundName?: string
 }
 
 export function InterviewForm({
@@ -26,10 +39,16 @@ export function InterviewForm({
   error,
   onSubmit,
   onCancel,
+  lockedRoundName,
 }: InterviewFormProps) {
+  // A combobox, unlike the rest of this form's fields, needs its live value
+  // in React state rather than read off the DOM at submit time — see
+  // ComboboxField.
+  const [round, setRound] = useState(initialValues?.round ?? lockedRoundName ?? '')
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onSubmit(readInterviewValues(event.currentTarget))
+    onSubmit(readInterviewValues(event.currentTarget, round))
   }
 
   return (
@@ -37,14 +56,12 @@ export function InterviewForm({
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3 rounded-md bg-muted p-3">
       <FormError message={error} />
 
-      <TextField
-        label="Round"
-        name="round"
-        placeholder="Technical"
-        defaultValue={initialValues?.round}
-        required
-        disabled={isSubmitting}
-      />
+      {!lockedRoundName && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="interview-round">Round</Label>
+          <RoundField id="interview-round" value={round} onChange={setRound} required disabled={isSubmitting} />
+        </div>
+      )}
 
       <TextField
         label="Scheduled at"
@@ -66,7 +83,8 @@ export function InterviewForm({
         disabled={isSubmitting}
       />
 
-      <div className="flex gap-3">
+      {/* grid only when there are two w-full buttons to divide evenly — see AddRoundDialog for why flex overflows in that case. One button (no onCancel) has nothing to divide, so it stays flex. */}
+      <div className={onCancel ? 'grid grid-cols-2 gap-3' : 'flex gap-3'}>
         {onCancel && (
           <Button
             type="button"

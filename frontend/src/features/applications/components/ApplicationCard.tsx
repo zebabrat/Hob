@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { Link } from 'react-router'
 import type { ApplicationDto } from '@hob/shared'
 import { applicationCardMetaTags } from '../helpers/cardMetaTags'
-import { isQuiet, upcomingInterview } from '../helpers/cardSignals'
+import { isImminentInterview, isQuiet } from '../helpers/cardSignals'
 import { ApplicationCardVisual } from './ApplicationCardVisual'
 
 interface ApplicationCardProps {
@@ -23,7 +23,7 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
   })
 
   const metaTags = applicationCardMetaTags(application)
-  const accented = upcomingInterview(application) !== null
+  const accented = isImminentInterview(application)
   const dimmed = isQuiet(application)
 
   return (

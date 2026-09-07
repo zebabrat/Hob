@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ApplicationDto, InterviewDto } from '@hob/shared'
-import { formatUpcomingInterview, isQuiet, quietDays, upcomingInterview } from './cardSignals'
+import {
+  formatUpcomingInterview,
+  isImminentInterview,
+  isQuiet,
+  quietDays,
+  upcomingInterview,
+} from './cardSignals'
 
 const NOW = new Date('2026-08-19T10:00:00.000Z')
 
@@ -72,9 +78,9 @@ describe('upcomingInterview', () => {
     expect(upcomingInterview(application({ interviews: [soon] }), NOW)?.id).toBe(5)
   })
 
-  it('ignores an interview more than 24 hours out', () => {
-    const later = interview({ scheduledAt: '2026-08-25T20:00:00.000Z' })
-    expect(upcomingInterview(application({ interviews: [later] }), NOW)).toBeNull()
+  it('returns an interview further out too — nearest call still counts as upcoming', () => {
+    const later = interview({ id: 7, scheduledAt: '2026-08-25T20:00:00.000Z' })
+    expect(upcomingInterview(application({ interviews: [later] }), NOW)?.id).toBe(7)
   })
 
   it('ignores a past interview', () => {
@@ -82,10 +88,26 @@ describe('upcomingInterview', () => {
     expect(upcomingInterview(application({ interviews: [past] }), NOW)).toBeNull()
   })
 
-  it('picks the nearest one when several are within the window', () => {
+  it('picks the nearest one when several are scheduled', () => {
     const far = interview({ id: 1, scheduledAt: '2026-08-20T09:00:00.000Z' })
     const near = interview({ id: 2, scheduledAt: '2026-08-19T15:00:00.000Z' })
     expect(upcomingInterview(application({ interviews: [far, near] }), NOW)?.id).toBe(2)
+  })
+})
+
+describe('isImminentInterview', () => {
+  it('is true for an interview within the next 24 hours', () => {
+    const soon = interview({ scheduledAt: '2026-08-19T20:00:00.000Z' })
+    expect(isImminentInterview(application({ interviews: [soon] }), NOW)).toBe(true)
+  })
+
+  it('is false for an interview more than 24 hours out', () => {
+    const later = interview({ scheduledAt: '2026-08-25T20:00:00.000Z' })
+    expect(isImminentInterview(application({ interviews: [later] }), NOW)).toBe(false)
+  })
+
+  it('is false when there is no upcoming interview', () => {
+    expect(isImminentInterview(application({ interviews: [] }), NOW)).toBe(false)
   })
 })
 
@@ -113,5 +135,9 @@ describe('formatUpcomingInterview', () => {
   it('says "tomorrow" for a next-day time', () => {
     const iso = '2026-08-20T11:00:00.000Z'
     expect(formatUpcomingInterview(iso, NOW)).toBe(expectedLabel(iso, NOW.toISOString()))
+  })
+
+  it('falls back to a short date further out than tomorrow', () => {
+    expect(formatUpcomingInterview('2026-08-27T11:00:00.000Z', NOW)).toBe('Call AUG 27')
   })
 })

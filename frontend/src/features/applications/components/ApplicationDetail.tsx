@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import type { ApplicationStatus } from '@hob/shared'
 import { DEFAULT_CURRENCY_SYMBOL, formatSalary } from 'shared/helpers/formatSalary'
 import { formatShortDate } from 'shared/helpers/formatShortDate'
 import { salaryTypeLabel, statusLabel, workFormatLabel } from 'shared/helpers/labels'
 import { FormError } from 'shared/components/FormError'
 import { cn } from 'shared/lib/utils'
-import { applicationToEditValues } from '../helpers/formValues'
+import { appendReason, applicationToEditValues } from '../helpers/formValues'
 import { daysInProcess, buildStatusTimeline } from '../helpers/statusTimeline'
 import { useApplicationDetail } from '../hooks/useApplicationDetail'
 import { useAttachments } from '../hooks/useAttachments'
+import { useDeleteApplication } from '../hooks/useDeleteApplication'
 import { useInterviews } from '../hooks/useInterviews'
 import { useUpdateApplication } from '../hooks/useUpdateApplication'
 import { ApplicationDetailSkeleton } from './ApplicationDetailSkeleton'
@@ -17,6 +18,7 @@ import { ApplicationEditForm } from './ApplicationEditForm'
 import { AttachmentList } from './AttachmentList'
 import { AttachmentUpload } from './AttachmentUpload'
 import { InterviewList } from './InterviewList'
+import { StatusReasonPrompt } from './StatusReasonPrompt'
 
 interface ApplicationDetailProps {
   id: number
@@ -24,14 +26,20 @@ interface ApplicationDetailProps {
 
 function BreadcrumbBar({
   status,
-  onArchive,
+  onArchiveClick,
   onAcceptOffer,
+  onDelete,
   isBusy,
+  isDeleting,
+  hideActions,
 }: {
   status: ApplicationStatus
-  onArchive: () => void
+  onArchiveClick: () => void
   onAcceptOffer: () => void
+  onDelete: () => void
   isBusy: boolean
+  isDeleting: boolean
+  hideActions: boolean
 }) {
   const isResolved = status === 'ACCEPTED' || status === 'REJECTED' || status === 'WITHDRAWN'
 
@@ -47,17 +55,19 @@ function BreadcrumbBar({
         </span>
       </div>
 
-      {!isResolved && (
+      {!hideActions && (
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onArchive}
-            disabled={isBusy}
-            className="border border-border px-3 py-1.5 font-mono text-[0.625rem] tracking-[0.08em] text-text-secondary uppercase disabled:opacity-50"
-          >
-            Archive
-          </button>
-          {status === 'OFFER' && (
+          {!isResolved && (
+            <button
+              type="button"
+              onClick={onArchiveClick}
+              disabled={isBusy}
+              className="border border-border px-3 py-1.5 font-mono text-[0.625rem] tracking-[0.08em] text-text-secondary uppercase disabled:opacity-50"
+            >
+              Archive
+            </button>
+          )}
+          {!isResolved && status === 'OFFER' && (
             <button
               type="button"
               onClick={onAcceptOffer}
@@ -67,6 +77,14 @@ function BreadcrumbBar({
               Accept offer
             </button>
           )}
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isBusy || isDeleting}
+            className="border border-border px-3 py-1.5 font-mono text-[0.625rem] tracking-[0.08em] text-destructive uppercase disabled:opacity-50"
+          >
+            {isDeleting ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
       )}
     </div>
@@ -141,6 +159,7 @@ function StatusTimeline({ application }: { application: NonNullable<ReturnType<t
 }
 
 export function ApplicationDetail({ id }: ApplicationDetailProps) {
+  const navigate = useNavigate()
   const { application, setApplication, isLoading, error: loadError } = useApplicationDetail(id)
   // Called unconditionally, ahead of the loading/not-found branches below:
   // each only needs setApplication, which is stable from the first render, so
@@ -148,7 +167,9 @@ export function ApplicationDetail({ id }: ApplicationDetailProps) {
   const updateApp = useUpdateApplication(id, setApplication)
   const interviews = useInterviews(id, setApplication)
   const attachments = useAttachments(id, setApplication)
+  const deleteApp = useDeleteApplication(id)
   const [notesDraft, setNotesDraft] = useState<string | null>(null)
+  const [showWithdrawPrompt, setShowWithdrawPrompt] = useState(false)
 
   if (isLoading) {
     return <ApplicationDetailSkeleton />
@@ -185,14 +206,49 @@ export function ApplicationDetail({ id }: ApplicationDetailProps) {
     void updateApp.save({ ...editValues, notes }).then(() => setNotesDraft(null))
   }
 
+  const isResolved =
+    application.status === 'ACCEPTED' ||
+    application.status === 'REJECTED' ||
+    application.status === 'WITHDRAWN'
+
+  const handleDelete = async () => {
+    // The archive and the board are both flat lists fetched fresh on
+    // mount — there is nothing in memory to remove this row from, so
+    // navigating away and letting the list re-fetch is simpler than
+    // reaching back into a parent's state from here.
+    if (await deleteApp.remove()) navigate(isResolved ? '/archive' : '/board')
+  }
+
+  const handleWithdraw = async (reason: string) => {
+    const notes = reason.trim() ? appendReason(editValues.notes, 'WITHDRAWN', reason.trim()) : editValues.notes
+    await updateApp.save({ ...editValues, status: 'WITHDRAWN', notes })
+    setShowWithdrawPrompt(false)
+  }
+
   return (
     <div>
       <BreadcrumbBar
         status={application.status}
         isBusy={updateApp.isSubmitting}
-        onArchive={() => void updateApp.save({ ...editValues, status: 'WITHDRAWN' })}
+        isDeleting={deleteApp.isDeleting}
+        hideActions={showWithdrawPrompt}
+        onArchiveClick={() => setShowWithdrawPrompt(true)}
         onAcceptOffer={() => void updateApp.save({ ...editValues, status: 'ACCEPTED' })}
+        onDelete={() => void handleDelete()}
       />
+
+      {showWithdrawPrompt && (
+        <div className="mb-9">
+          <StatusReasonPrompt
+            status="WITHDRAWN"
+            isSubmitting={updateApp.isSubmitting}
+            onConfirm={(reason) => void handleWithdraw(reason)}
+            onCancel={() => setShowWithdrawPrompt(false)}
+          />
+        </div>
+      )}
+
+      <FormError message={deleteApp.error} />
 
       <div className="mb-9 border-b border-border pb-8">
         {application.status === 'OFFER' && application.offerDeadline && (
@@ -237,6 +293,8 @@ export function ApplicationDetail({ id }: ApplicationDetailProps) {
               interviews={application.interviews}
               pendingId={interviews.pendingId}
               error={interviews.error}
+              showAddForm={!isResolved}
+              applicationStatus={application.status}
               onAdd={interviews.add}
               onUpdate={interviews.update}
               onDelete={(interviewId) => void interviews.remove(interviewId)}
@@ -277,14 +335,16 @@ export function ApplicationDetail({ id }: ApplicationDetailProps) {
             </div>
           </section>
 
-          <ApplicationEditForm
-            key={application.updatedAt}
-            application={application}
-            editValues={editValues}
-            isSubmitting={updateApp.isSubmitting}
-            error={updateApp.error}
-            onSave={(values) => void updateApp.save(values)}
-          />
+          {!isResolved && (
+            <ApplicationEditForm
+              key={application.updatedAt}
+              application={application}
+              editValues={editValues}
+              isSubmitting={updateApp.isSubmitting}
+              error={updateApp.error}
+              onSave={(values) => void updateApp.save(values)}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-9">

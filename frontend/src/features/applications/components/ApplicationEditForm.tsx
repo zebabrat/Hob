@@ -19,6 +19,7 @@ import {
 import {
   UNSPECIFIED_SALARY_TYPE,
   UNSPECIFIED_WORK_FORMAT,
+  appendReason,
   readApplicationEditValues,
   salaryTypeSelectLabel,
   sanitizeSalaryDigits,
@@ -27,6 +28,7 @@ import {
 import type { ApplicationEditFormValues } from '../types'
 import { PositionField } from './PositionField'
 import { SourceField } from './SourceField'
+import { StatusReasonPrompt } from './StatusReasonPrompt'
 import { TextAreaField } from './TextAreaField'
 
 interface ApplicationEditFormProps {
@@ -55,16 +57,37 @@ export function ApplicationEditForm({
 }: ApplicationEditFormProps) {
   const [position, setPosition] = useState(editValues.position)
   const [source, setSource] = useState(editValues.source)
+  // Set only when Save is pressed with Status freshly moved to Rejected or
+  // Withdrawn — the read values wait here for a reason (or a skip) rather
+  // than saving immediately, same as the Archive button's own prompt.
+  const [pending, setPending] = useState<{
+    values: ApplicationEditFormValues
+    status: 'REJECTED' | 'WITHDRAWN'
+  } | null>(null)
 
   const handleSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onSave(
-      readApplicationEditValues(event.currentTarget, {
-        labels: editValues.labels,
-        position,
-        source,
-      }),
-    )
+    const values = readApplicationEditValues(event.currentTarget, {
+      labels: editValues.labels,
+      position,
+      source,
+    })
+
+    if ((values.status === 'REJECTED' || values.status === 'WITHDRAWN') && values.status !== editValues.status) {
+      setPending({ values, status: values.status })
+      return
+    }
+
+    onSave(values)
+  }
+
+  const confirmPending = (reason: string) => {
+    if (!pending) return
+    const notes = reason.trim()
+      ? appendReason(pending.values.notes, pending.status, reason.trim())
+      : pending.values.notes
+    onSave({ ...pending.values, notes })
+    setPending(null)
   }
 
   return (
@@ -247,9 +270,18 @@ export function ApplicationEditForm({
           disabled={isSubmitting}
         />
 
-        <SubmitButton isSubmitting={isSubmitting} pendingLabel="Saving…">
-          Save
-        </SubmitButton>
+        {pending ? (
+          <StatusReasonPrompt
+            status={pending.status}
+            isSubmitting={isSubmitting}
+            onConfirm={confirmPending}
+            onCancel={() => setPending(null)}
+          />
+        ) : (
+          <SubmitButton isSubmitting={isSubmitting} pendingLabel="Saving…">
+            Save
+          </SubmitButton>
+        )}
       </form>
     </details>
   )

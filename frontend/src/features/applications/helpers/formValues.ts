@@ -10,13 +10,28 @@ import type {
   SalaryType,
   WorkFormat,
 } from '@hob/shared'
-import { salaryTypeLabel, workFormatLabel } from 'shared/helpers/labels'
+import { salaryTypeLabel, statusLabel, workFormatLabel } from 'shared/helpers/labels'
 import { toDateTimeLocalValue } from './dateTimeLocal'
 import type { ApplicationEditFormValues, ApplicationFormValues, InterviewFormValues } from '../types'
 
 function readField(form: HTMLFormElement, name: string): string {
   const value = new FormData(form).get(name)
   return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
+ * Folds an optional "why Rejected/Withdrawn" reason into the existing notes
+ * field — there is no separate reason column, and adding one for a single
+ * sentence captured once per application would outweigh what it buys. Blank
+ * reasons are the caller's job to skip; this always appends.
+ */
+export function appendReason(
+  existingNotes: string,
+  status: ApplicationStatus,
+  reason: string,
+): string {
+  const line = `${statusLabel(status)}: ${reason}`
+  return existingNotes ? `${existingNotes}\n\n${line}` : line
 }
 
 /**
@@ -173,9 +188,10 @@ export function toApplicationUpdateInput(values: ApplicationEditFormValues): App
   }
 }
 
-export function readInterviewValues(form: HTMLFormElement): InterviewFormValues {
+/** Round is a combobox with its own React state, like Position/Source — its live value has to be passed in rather than read back off the DOM. */
+export function readInterviewValues(form: HTMLFormElement, round: string): InterviewFormValues {
   return {
-    round: readField(form, 'round'),
+    round,
     scheduledAt: readField(form, 'scheduledAt'),
     notes: readField(form, 'notes'),
   }

@@ -3,7 +3,7 @@ import { DEFAULT_CURRENCY_SYMBOL, formatSalary } from 'shared/helpers/formatSala
 import { formatShortDate } from 'shared/helpers/formatShortDate'
 import { workFormatLabel } from 'shared/helpers/labels'
 import type { CardMetaTag } from '../components/ApplicationCardVisual'
-import { formatUpcomingInterview, isQuiet, quietDays, upcomingInterview } from './cardSignals'
+import { formatUpcomingInterview, isImminentInterview, isQuiet, quietDays, upcomingInterview } from './cardSignals'
 
 /**
  * The row of small mono tags under a card's title — date/source/format in
@@ -15,7 +15,8 @@ import { formatUpcomingInterview, isQuiet, quietDays, upcomingInterview } from '
 export function applicationCardMetaTags(application: ApplicationDto, now: Date = new Date()): CardMetaTag[] {
   const soon = upcomingInterview(application, now)
   if (soon?.scheduledAt) {
-    return [{ text: formatUpcomingInterview(soon.scheduledAt, now).toUpperCase(), tone: 'accent' }]
+    const tone = isImminentInterview(application, now) ? 'accent' : 'default'
+    return [{ text: formatUpcomingInterview(soon.scheduledAt, now).toUpperCase(), tone }]
   }
 
   if (application.status === 'OFFER') {

@@ -1,6 +1,10 @@
+import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router'
+import { toFormErrorMessage } from 'shared/api/errorMessage'
 import { formatShortDate } from 'shared/helpers/formatShortDate'
 import { FormError } from 'shared/components/FormError'
+import { deleteApplication } from '../api/deleteApplication'
 import { ARCHIVE_COLUMNS, groupByStatus } from '../helpers/groupByStatus'
 import { useApplications } from '../hooks/useApplications'
 import { ArchiveSkeleton } from './ArchiveSkeleton'
@@ -12,9 +16,25 @@ import { ArchiveSkeleton } from './ArchiveSkeleton'
  * again, so the drag affordance the board needs would be dead weight.
  */
 export function ArchiveList() {
-  const { applications, isLoading, error } = useApplications()
+  const { applications, isLoading, error, setApplications } = useApplications()
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const columns = groupByStatus(applications, ARCHIVE_COLUMNS)
   const total = columns.reduce((sum, column) => sum + column.applications.length, 0)
+
+  const handleDelete = async (applicationId: number) => {
+    setDeleteError(null)
+    setDeletingId(applicationId)
+
+    try {
+      await deleteApplication(applicationId)
+      setApplications((current) => current.filter((application) => application.id !== applicationId))
+    } catch (err) {
+      setDeleteError(toFormErrorMessage(err))
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -25,7 +45,7 @@ export function ArchiveList() {
         </p>
       </header>
 
-      <FormError message={error} />
+      <FormError message={error ?? deleteError} />
 
       {isLoading ? (
         <ArchiveSkeleton />
@@ -50,23 +70,40 @@ export function ArchiveList() {
 
                   <div>
                     {column.applications.map((application) => (
-                      <Link
+                      <div
                         key={application.id}
-                        to={`/applications/${application.id}`}
                         className="flex items-center justify-between gap-6 border-b border-border-weak py-3.5 hover:bg-zebra"
                       >
-                        <div>
+                        {/*
+                         * Only the label navigates — the row itself can't be
+                         * the link, since the delete button beside it also
+                         * needs to be clickable and a button nested inside an
+                         * anchor is invalid HTML with unreliable focus/click
+                         * behavior across browsers.
+                         */}
+                        <Link to={`/applications/${application.id}`} className="min-w-0 flex-1">
                           <span className="text-[0.9375rem] font-medium text-foreground">
                             {application.company}
                           </span>
                           <span className="ml-2.5 text-sm text-text-secondary">
                             {application.position}
                           </span>
+                        </Link>
+                        <div className="flex shrink-0 items-center gap-4">
+                          <span className="font-mono text-[0.625rem] tracking-[0.06em] text-text-tertiary uppercase">
+                            {formatShortDate(application.updatedAt)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(application.id)}
+                            disabled={deletingId === application.id}
+                            aria-label="Delete"
+                            className="text-text-tertiary hover:text-destructive disabled:opacity-50"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
                         </div>
-                        <span className="font-mono text-[0.625rem] tracking-[0.06em] text-text-tertiary uppercase">
-                          {formatShortDate(application.updatedAt)}
-                        </span>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 </section>

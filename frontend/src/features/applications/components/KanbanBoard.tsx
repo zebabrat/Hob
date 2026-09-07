@@ -3,18 +3,29 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useSearchParams } from 'react-router'
 import type { ApplicationDto, ApplicationStatus } from '@hob/shared'
+import { toFormErrorMessage } from 'shared/api/errorMessage'
 import { formatDateTime } from 'shared/helpers/formatDateTime'
 import { FormError } from 'shared/components/FormError'
 import { Metric } from 'shared/components/Metric'
 import { cn } from 'shared/lib/utils'
+import { createInterview } from '../api/createInterview'
 import { useApplications } from '../hooks/useApplications'
 import { useCreateApplication } from '../hooks/useCreateApplication'
 import { useUpdateApplicationStatus } from '../hooks/useUpdateApplicationStatus'
 import { groupByStatus } from '../helpers/groupByStatus'
+import { toInterviewCreateInput } from '../helpers/formValues'
+import { AddRoundDialog } from './AddRoundDialog'
 import { BoardSkeleton } from './BoardSkeleton'
 import { CreateApplicationModal } from './CreateApplicationModal'
 import { KanbanColumn } from './KanbanColumn'
 import { PipelineView } from './PipelineView'
+
+/** The two columns a call is commonly scheduled for — see AddRoundDialog. */
+type RoundStatus = 'SCREENING' | 'INTERVIEW'
+
+function isRoundStatus(status: ApplicationStatus): status is RoundStatus {
+  return status === 'SCREENING' || status === 'INTERVIEW'
+}
 
 type QuickFilter = 'remote' | 'recent'
 
@@ -46,6 +57,46 @@ export function KanbanBoard() {
   const [activeFilters, setActiveFilters] = useState<Set<QuickFilter>>(new Set())
   const view = searchParams.get('view') === 'time' ? 'time' : 'columns'
 
+  // The card a drop just moved onto Screening/Interview, waiting on the
+  // optional "when's the call" dialog — see AddRoundDialog. Independent of
+  // `move`'s own request: the status change already happened by the time
+  // this is set, so declining the dialog loses nothing but the round.
+  const [pendingRound, setPendingRound] = useState<{ applicationId: number; status: RoundStatus } | null>(
+    null,
+  )
+  const [isAddingRound, setIsAddingRound] = useState(false)
+  const [addRoundError, setAddRoundError] = useState<string | null>(null)
+
+  const closeRoundDialog = () => {
+    setPendingRound(null)
+    setAddRoundError(null)
+  }
+
+  const handleSaveRound = async (round: string, scheduledAt: string) => {
+    if (!pendingRound) return
+    setAddRoundError(null)
+    setIsAddingRound(true)
+
+    try {
+      const created = await createInterview(
+        pendingRound.applicationId,
+        toInterviewCreateInput({ round, scheduledAt, notes: '' }),
+      )
+      setApplications((current) =>
+        current.map((application) =>
+          application.id === pendingRound.applicationId
+            ? { ...application, interviews: [...application.interviews, created] }
+            : application,
+        ),
+      )
+      setPendingRound(null)
+    } catch (err) {
+      setAddRoundError(toFormErrorMessage(err))
+    } finally {
+      setIsAddingRound(false)
+    }
+  }
+
   const setView = (next: 'columns' | 'time') => {
     const nextParams = new URLSearchParams(searchParams)
     if (next === 'time') nextParams.set('view', 'time')
@@ -76,7 +127,17 @@ export function KanbanBoard() {
     // Dropped outside any column: nothing to do.
     if (!over) return
 
-    void move(Number(active.id), over.id as ApplicationStatus)
+    const applicationId = Number(active.id)
+    const status = over.id as ApplicationStatus
+    const previousStatus = applications.find((application) => application.id === applicationId)?.status
+
+    void move(applicationId, status)
+
+    // A real change onto Screening/Interview — not a drop back where the
+    // card already was — is the moment to offer logging the call.
+    if (isRoundStatus(status) && previousStatus !== status) {
+      setPendingRound({ applicationId, status })
+    }
   }
 
   // Derived straight from the list already on hand — no extra fetch just to
@@ -256,6 +317,16 @@ export function KanbanBoard() {
         onClose={create.close}
         onSubmit={(values, keepOpen) => void create.submit(values, keepOpen)}
       />
+
+      {pendingRound && (
+        <AddRoundDialog
+          status={pendingRound.status}
+          isSubmitting={isAddingRound}
+          error={addRoundError}
+          onSave={(round, scheduledAt) => void handleSaveRound(round, scheduledAt)}
+          onSkip={closeRoundDialog}
+        />
+      )}
     </div>
   )
 }
